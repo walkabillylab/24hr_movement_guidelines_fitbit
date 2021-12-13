@@ -94,7 +94,33 @@ ggplot(ee_data, aes(calories)) +
         geom_histogram() 
 ```
 
-There is a fixed calories per minute depending on age, gender, height, and weight. We can see this represented in the data.
+See fitbit description for calories [https://dev.fitbit.com/build/reference/web-api/intraday/get-activity-intraday-by-date/](https://dev.fitbit.com/build/reference/web-api/intraday/get-activity-intraday-by-date/)
+
+```{}
+## Using BMR/EER Algorithms
+
+If a user had no Fitbit tracker data for the specific day then the greater of Logged Activities + BMR (for minutes when there is no activity) and the calories calculated from the EER for that day (if EER enabled for this user's profile) are taken. In case, there was some data from the tracker for the specific day, that data where available is used and for time where data is unavailable, the BMR is used. If the total is less than 20% greater than BMR then the EER (cals < EER * 0.8) is used. EER never used to calculate calories for today.
+Using BMR Formula
+
+Fitbit uses the standard MD Mifflin-St Jeor equation:
+
+9.99 * weightKg + 6.25*heightCm - 4.92*ageYears + s, where s is +5 for 
+males
+and -161 for female
+
+EER Formula (TEE total energy expenditure)
+
+The EER Formula is based on http://www.cdc.gov/pcd/issues/2006/oct/pdf/06_0034.pdf, which in turn is based on "Food and Nutrition Board. Dietary reference intakes for energy, carbohydrate, fiber, fat, fatty acids, cholesterol, protein, and amino acids (macronutrients). Washington (DC): National Academy Press; 2005." http://www.nap.edu/openbook.php?isbn=0309085373&page=204
+MALE-based EER Formula:
+
+TEE = 864 - 9.72 x age (years) + 1.0 x (14.2 x weight(kg) + 503 x height
+(meters))
+
+FEMALE-based EER Formula:
+
+TEE = 387 - 7.31 x age (years) + 1.0 x (10.9 x weight(kg) + 660.7 x height
+(meters))
+```
 
 ### Intensity per minute
 ```{r}
@@ -171,6 +197,17 @@ data <- data %>%
                           time > "2021-12-05 00:00:00" ~ "post"
                         ))
 table(data$intervention)
+
+### Recoding Sleep 
+data <- data %>%
+              mutate(sleep_yn = case_when(
+                          sleep == 1 ~ "sleep",
+                          sleep == 2 ~ "sleep",
+                          sleep == 3 ~ "sleep",
+                          TRUE ~ "awake"
+                        ))
+table(data$sleep_yn)
+
 
 rm(ee_data, ee_intense, ee_intense_met, ee_intense_met_step, ee_intense_met_step_hr, hr_data, intense_data, met_data, sleep_data, step_data)
 ```

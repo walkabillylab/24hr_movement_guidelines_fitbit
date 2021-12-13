@@ -43,7 +43,7 @@ There are a number of data types and frequencies. Below is a summary:
         - All Sync events
     - 30secondSleepStages_merged
         - Sleep stages every 30 seconds. 
-        
+
 # To do
 
 1. Combine the minute level data
@@ -61,13 +61,20 @@ hr_data <- read_csv("Data/heartrate_1min_merged.csv")
 ```
 
 ```
-## 
+## Rows: 1773649 Columns: 3
+```
+
+```
 ## ── Column specification ────────────────────────────────────────────────────────
-## cols(
-##   Id = col_character(),
-##   Time = col_character(),
-##   Value = col_double()
-## )
+## Delimiter: ","
+## chr (2): Id, Time
+## dbl (1): Value
+```
+
+```
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 ```
 
 ```r
@@ -100,13 +107,20 @@ ee_data <- read_csv("Data/minuteCaloriesNarrow_merged.csv")
 ```
 
 ```
-## 
+## Rows: 2039924 Columns: 3
+```
+
+```
 ## ── Column specification ────────────────────────────────────────────────────────
-## cols(
-##   Id = col_character(),
-##   ActivityMinute = col_character(),
-##   Calories = col_double()
-## )
+## Delimiter: ","
+## chr (2): Id, ActivityMinute
+## dbl (1): Calories
+```
+
+```
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 ```
 
 ```r
@@ -141,13 +155,20 @@ intense_data <- read_csv("Data/minuteIntensitiesNarrow_merged.csv")
 ```
 
 ```
-## 
+## Rows: 2039924 Columns: 3
+```
+
+```
 ## ── Column specification ────────────────────────────────────────────────────────
-## cols(
-##   Id = col_character(),
-##   ActivityMinute = col_character(),
-##   Intensity = col_double()
-## )
+## Delimiter: ","
+## chr (2): Id, ActivityMinute
+## dbl (1): Intensity
+```
+
+```
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 ```
 
 ```r
@@ -180,13 +201,20 @@ met_data <- read_csv("Data/minuteMETsNarrow_merged.csv")
 ```
 
 ```
-## 
+## Rows: 2039924 Columns: 3
+```
+
+```
 ## ── Column specification ────────────────────────────────────────────────────────
-## cols(
-##   Id = col_character(),
-##   ActivityMinute = col_character(),
-##   METs = col_double()
-## )
+## Delimiter: ","
+## chr (2): Id, ActivityMinute
+## dbl (1): METs
+```
+
+```
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 ```
 
 ```r
@@ -221,14 +249,20 @@ sleep_data <- read_csv("Data/minuteSleep_merged.csv")
 ```
 
 ```
-## 
+## Rows: 578422 Columns: 4
+```
+
+```
 ## ── Column specification ────────────────────────────────────────────────────────
-## cols(
-##   Id = col_character(),
-##   date = col_character(),
-##   value = col_double(),
-##   logId = col_double()
-## )
+## Delimiter: ","
+## chr (2): Id, date
+## dbl (2): value, logId
+```
+
+```
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 ```
 
 ```r
@@ -261,13 +295,20 @@ step_data <- read_csv("Data/minuteStepsNarrow_merged.csv")
 ```
 
 ```
-## 
+## Rows: 2039924 Columns: 3
+```
+
+```
 ## ── Column specification ────────────────────────────────────────────────────────
-## cols(
-##   Id = col_character(),
-##   ActivityMinute = col_character(),
-##   Steps = col_double()
-## )
+## Delimiter: ","
+## chr (2): Id, ActivityMinute
+## dbl (1): Steps
+```
+
+```
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 ```
 
 ```r
@@ -306,6 +347,26 @@ data <- full_join(ee_intense_met_step_hr, sleep_data, by = c("id", "time"))
 ## Filter out coordinator data
 data <- filter(data, id != "Study Coordinator QU")
 
+### Create a location variable
+data$location <- substr(data$id, 1, 1)
+
+### Create an intervention 
+data <- data %>%
+              mutate(intervention = case_when(
+                          time < "2021-10-25 00:00:00" ~ "pre",
+                          time >= "2021-10-25 00:00:00" & time < "2021-12-05 00:00:00" ~ "intervention",
+                          time > "2021-12-05 00:00:00" ~ "post"
+                        ))
+table(data$intervention)
+```
+
+```
+## 
+## intervention          pre 
+##      1498466       751117
+```
+
+```r
 rm(ee_data, ee_intense, ee_intense_met, ee_intense_met_step, ee_intense_met_step_hr, hr_data, intense_data, met_data, sleep_data, step_data)
 ```
 

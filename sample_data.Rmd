@@ -61,7 +61,7 @@ There are a number of data types and frequencies. Below is a summary:
         - All Sync events
     - 30secondSleepStages_merged
         - Sleep stages every 30 seconds. 
-        
+
 # To do
 
 1. Combine the minute level data
@@ -159,6 +159,18 @@ data <- full_join(ee_intense_met_step_hr, sleep_data, by = c("id", "time"))
 
 ## Filter out coordinator data
 data <- filter(data, id != "Study Coordinator QU")
+
+### Create a location variable
+data$location <- substr(data$id, 1, 1)
+
+### Create an intervention 
+data <- data %>%
+              mutate(intervention = case_when(
+                          time < "2021-10-25 00:00:00" ~ "pre",
+                          time >= "2021-10-25 00:00:00" & time < "2021-12-05 00:00:00" ~ "intervention",
+                          time > "2021-12-05 00:00:00" ~ "post"
+                        ))
+table(data$intervention)
 
 rm(ee_data, ee_intense, ee_intense_met, ee_intense_met_step, ee_intense_met_step_hr, hr_data, intense_data, met_data, sleep_data, step_data)
 ```

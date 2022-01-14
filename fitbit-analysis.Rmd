@@ -1,0 +1,45 @@
+---
+title: "fitbit-analysis"
+author: "Shelby Sturrock"
+date: "14/01/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages("dplyr")
+install.packages("tidyr")
+library(dplyr)
+library(tidyr)
+knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
+```
+
+## Processing FitBit data 
+
+### Read in data from three time periods: 
+
+```{r, results="hide"}
+
+  # nov 08 - nov 21
+    nov08<-list.files("fitbit_data/nov08-nov21", pattern="*.csv", full.names=TRUE)
+    nov08_csv<-lapply(nov08, read.csv)
+    names(nov08_csv)<-paste(gsub("fitbit_data/nov08-nov21/|.csv","",nov08),".1",sep="")
+    list2env(nov08_csv,envir=.GlobalEnv)
+    rm(nov08,nov08_csv)
+    
+  # nov 22 - dec 05
+    nov22<-list.files("fitbit_data/nov22-dec05", pattern="*.csv", full.names=TRUE)
+    nov22_csv<-lapply(nov22, read.csv)
+    names(nov22_csv)<-paste(gsub("fitbit_data/nov22-dec05/|.csv","",nov22),".2",sep="")
+    list2env(nov22_csv,envir=.GlobalEnv)
+    rm(nov22,nov22_csv)
+  
+  # dec 06 - dec 12
+    dec06<-list.files("fitbit_data/dec06-dec12", pattern="*.csv", full.names=TRUE)
+    dec06_csv<-lapply(dec06, read.csv)
+    names(dec06_csv)<-paste(gsub("fitbit_data/dec06-dec12/|.csv","",dec06),".3",sep="")
+    list2env(dec06_csv,envir=.GlobalEnv)
+    rm(dec06,dec06_csv)
+    
+```
+

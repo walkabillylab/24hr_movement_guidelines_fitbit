@@ -3,6 +3,7 @@ title: "fitbit-analysis"
 author: "Shelby Sturrock"
 date: "14/01/2022"
 output: html_document
+keep_md: true
 ---
 
 ```{r setup, include=FALSE}

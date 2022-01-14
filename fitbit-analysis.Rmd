@@ -2,11 +2,12 @@
 title: "fitbit-analysis"
 author: "Shelby Sturrock"
 date: "14/01/2022"
-output: html_document
-keep_md: true
+output: 
+  html_document:
+    keep_md: true
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, results=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 install.packages("dplyr")
 install.packages("tidyr")
@@ -15,11 +16,11 @@ library(tidyr)
 knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 ```
 
-## Processing FitBit data 
+## processing FitBit data 
 
-### Read in data from three time periods: 
+### read in data from three time periods: 
 
-```{r, results="hide"}
+```{r, results="hide", echo=FALSE}
 
   # nov 08 - nov 21
     nov08<-list.files("fitbit_data/nov08-nov21", pattern="*.csv", full.names=TRUE)
@@ -43,4 +44,29 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
     rm(dec06,dec06_csv)
     
 ```
+
+### for each unique data type/dataset, consolidate data from three time periods
+
+```{r}
+
+# generate list of unique datasets (there are 18)
+    files<-unique(gsub("\\.1|\\.2|\\.3","",ls()))
+    
+  # for each unique type of data, rbind data from the three periods together
+    for(i in 1:length(files)) {
+      
+      pattern<-files[i]
+      X<-mget(ls(pattern=pattern)) %>% bind_rows()
+      assign(gsub("_merged","",pattern),X)
+      rm(list = ls()[grepl(pattern, ls())])
+      rm(X)
+      i<-i+1
+      
+    }
+    
+  # clean environment
+    rm(i,pattern,files)
+    ls()
+```
+
 

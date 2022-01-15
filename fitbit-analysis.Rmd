@@ -1,5 +1,5 @@
 ---
-title: "fitbit-analysis"
+title: "fitbit analysis for CSEP project"
 author: "Shelby Sturrock"
 date: "14/01/2022"
 output: 
@@ -73,18 +73,67 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
     ls()
 ```
 
-### (1) minute-level data: 
+### explore minute-level data (note date/time variable is "ActivityMinute" in most but not all dataframes)
+
+#### minute-level step count
 
 ```{r}
-
       str(minuteStepsNarrow) # steps per minute
-      str(minuteCaloriesNarrow) # calories burned each minute
-      str(minuteIntensitiesNarrow) # intensity of activity during each minute -- 0, 1, 2 and 3
-      str(minuteMETsNarrow) # MET value measued each minute
-      str(heartrate_1min) # heart rate measured each minute -- fewer measurements than above
-      str(`30secondSleepStages`) # sleep stages per 30 seconds? -- also fewer sleep observations
-      str(minuteSleep) # sleep stage per minute?
-      
 ```
+
+#### minute-level calories
+
+```{r}
+      str(minuteCaloriesNarrow) # calories burned each minute
+```
+
+#### minute-level activity intensity
+
+```{r}
+      str(minuteIntensitiesNarrow) # intensity of activity during each minute -- 0, 1, 2 and 3
+```
+
+#### minute-level METs
+
+```{r}
+      str(minuteMETsNarrow) # MET value measued each minute
+```
+
+#### minute-level heart rate (fewer observations than above)
+
+```{r}
+      str(heartrate_1min) # heart rate measured each minute -- fewer measurements than above
+```
+
+#### minute-level sleep stages 
+
+```{r}
+      str(minuteSleep) # sleep stage per minute?
+```
+
+#### 30 second sleep stages
+
+```{r}
+      str(`30secondSleepStages`) # sleep stages per 30 seconds? -- also fewer sleep observations
+```
+
+
+### process minute-level data
+
+#### merge minute-level calories, intensities, METs and steps
+
+```{r}
+    minute <- minuteCaloriesNarrow %>% full_join(minuteIntensitiesNarrow, by = c("ActivityMinute","Id")) %>%
+                                       full_join(minuteMETsNarrow, by = c("ActivityMinute","Id")) %>%
+                                       full_join(minuteStepsNarrow, by = c("ActivityMinute","Id")) 
+```
+
+#### generate dateTime and date variables with common naming convention 
+
+```{r}
+    minute$dateTime<-lubridate::mdy_hms(minute$ActivityMinute)
+    minute$date<-as.Date(minute$dateTime)
+```
+
 
 

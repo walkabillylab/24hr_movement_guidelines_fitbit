@@ -1,5 +1,5 @@
 ---
-title: "fitbit-analysis"
+title: "fitbit analysis for CSEP project"
 author: "Shelby Sturrock"
 date: "14/01/2022"
 output: 
@@ -79,7 +79,9 @@ output:
 ## [17] "sleepStagesDay"          "syncEvents"
 ```
 
-### (1) minute-level data: 
+### explore minute-level data (note date/time variable is "ActivityMinute" in most but not all dataframes)
+
+#### minute-level step count
 
 
 ```r
@@ -93,6 +95,9 @@ output:
 ##  $ Steps         : int  0 0 0 0 0 0 0 0 0 0 ...
 ```
 
+#### minute-level calories
+
+
 ```r
       str(minuteCaloriesNarrow) # calories burned each minute
 ```
@@ -103,6 +108,9 @@ output:
 ##  $ ActivityMinute: chr  "11/8/2021 12:00:00 AM" "11/8/2021 12:01:00 AM" "11/8/2021 12:02:00 AM" "11/8/2021 12:03:00 AM" ...
 ##  $ Calories      : num  1.03 1.03 1.03 1.03 1.03 ...
 ```
+
+#### minute-level activity intensity
+
 
 ```r
       str(minuteIntensitiesNarrow) # intensity of activity during each minute -- 0, 1, 2 and 3
@@ -115,6 +123,9 @@ output:
 ##  $ Intensity     : int  0 0 0 0 0 0 0 0 0 0 ...
 ```
 
+#### minute-level METs
+
+
 ```r
       str(minuteMETsNarrow) # MET value measued each minute
 ```
@@ -126,6 +137,9 @@ output:
 ##  $ METs          : int  10 10 10 10 10 10 10 10 10 10 ...
 ```
 
+#### minute-level heart rate (fewer observations than above)
+
+
 ```r
       str(heartrate_1min) # heart rate measured each minute -- fewer measurements than above
 ```
@@ -136,6 +150,24 @@ output:
 ##  $ Time : chr  "11/8/2021 12:00:00 AM" "11/8/2021 12:01:00 AM" "11/8/2021 12:02:00 AM" "11/8/2021 12:03:00 AM" ...
 ##  $ Value: int  64 67 65 65 63 67 62 62 72 66 ...
 ```
+
+#### minute-level sleep stages 
+
+
+```r
+      str(minuteSleep) # sleep stage per minute?
+```
+
+```
+## 'data.frame':	1077947 obs. of  4 variables:
+##  $ Id   : chr  "A01" "A01" "A01" "A01" ...
+##  $ date : chr  "11/8/2021 12:16:00 AM" "11/8/2021 12:17:00 AM" "11/8/2021 12:18:00 AM" "11/8/2021 12:19:00 AM" ...
+##  $ value: int  1 1 2 1 2 2 2 2 2 2 ...
+##  $ logId: num  3.45e+10 3.45e+10 3.45e+10 3.45e+10 3.45e+10 ...
+```
+
+#### 30 second sleep stages
+
 
 ```r
       str(`30secondSleepStages`) # sleep stages per 30 seconds? -- also fewer sleep observations
@@ -151,15 +183,25 @@ output:
 ##  $ SleepStage: chr  "wake" "wake" "wake" "wake" ...
 ```
 
+
+### process minute-level data
+
+#### merge minute-level calories, intensities, METs and steps
+
+
 ```r
-      str(minuteSleep) # sleep stage per minute?
+    minute <- minuteCaloriesNarrow %>% full_join(minuteIntensitiesNarrow, by = c("ActivityMinute","Id")) %>%
+                                       full_join(minuteMETsNarrow, by = c("ActivityMinute","Id")) %>%
+                                       full_join(minuteStepsNarrow, by = c("ActivityMinute","Id")) 
 ```
 
+#### generate dateTime and date variables with common naming convention 
+
+
+```r
+    minute$dateTime<-lubridate::mdy_hms(minute$ActivityMinute)
+    minute$date<-as.Date(minute$dateTime)
 ```
-## 'data.frame':	1077947 obs. of  4 variables:
-##  $ Id   : chr  "A01" "A01" "A01" "A01" ...
-##  $ date : chr  "11/8/2021 12:16:00 AM" "11/8/2021 12:17:00 AM" "11/8/2021 12:18:00 AM" "11/8/2021 12:19:00 AM" ...
-##  $ value: int  1 1 2 1 2 2 2 2 2 2 ...
-##  $ logId: num  3.45e+10 3.45e+10 3.45e+10 3.45e+10 3.45e+10 ...
-```
+
+
 

@@ -15,26 +15,26 @@ output:
 
 
 ```r
-  # nov 08 - nov 21
-    nov08<-list.files("fitbit_data/nov08-nov21", pattern="*.csv", full.names=TRUE)
-    nov08_csv<-lapply(nov08, read.csv)
-    names(nov08_csv)<-paste(gsub("fitbit_data/nov08-nov21/|.csv","",nov08),".1",sep="")
-    list2env(nov08_csv,envir=.GlobalEnv)
-    rm(nov08,nov08_csv)
-    
-  # nov 22 - dec 05
-    nov22<-list.files("fitbit_data/nov22-dec05", pattern="*.csv", full.names=TRUE)
-    nov22_csv<-lapply(nov22, read.csv)
-    names(nov22_csv)<-paste(gsub("fitbit_data/nov22-dec05/|.csv","",nov22),".2",sep="")
-    list2env(nov22_csv,envir=.GlobalEnv)
-    rm(nov22,nov22_csv)
+# nov 08 - nov 21
+  nov08<-list.files("fitbit_data/nov08-nov21", pattern="*.csv", full.names=TRUE)
+  nov08_csv<-lapply(nov08, read.csv)
+  names(nov08_csv)<-paste(gsub("fitbit_data/nov08-nov21/|.csv","",nov08),".1",sep="")
+  list2env(nov08_csv,envir=.GlobalEnv)
+  rm(nov08,nov08_csv)
   
-  # dec 06 - dec 12
-    dec06<-list.files("fitbit_data/dec06-dec12", pattern="*.csv", full.names=TRUE)
-    dec06_csv<-lapply(dec06, read.csv)
-    names(dec06_csv)<-paste(gsub("fitbit_data/dec06-dec12/|.csv","",dec06),".3",sep="")
-    list2env(dec06_csv,envir=.GlobalEnv)
-    rm(dec06,dec06_csv)
+# nov 22 - dec 05
+  nov22<-list.files("fitbit_data/nov22-dec05", pattern="*.csv", full.names=TRUE)
+  nov22_csv<-lapply(nov22, read.csv)
+  names(nov22_csv)<-paste(gsub("fitbit_data/nov22-dec05/|.csv","",nov22),".2",sep="")
+  list2env(nov22_csv,envir=.GlobalEnv)
+  rm(nov22,nov22_csv)
+
+# dec 06 - dec 12
+  dec06<-list.files("fitbit_data/dec06-dec12", pattern="*.csv", full.names=TRUE)
+  dec06_csv<-lapply(dec06, read.csv)
+  names(dec06_csv)<-paste(gsub("fitbit_data/dec06-dec12/|.csv","",dec06),".3",sep="")
+  list2env(dec06_csv,envir=.GlobalEnv)
+  rm(dec06,dec06_csv)
 ```
 
 ### for each unique data type/dataset, consolidate data from three time periods
@@ -42,10 +42,10 @@ output:
 
 ```r
 # generate list of unique datasets (there are 18)
-    files<-unique(gsub("\\.1|\\.2|\\.3","",ls()))
+  files<-unique(gsub("\\.1|\\.2|\\.3","",ls()))
     
-  # for each unique type of data, rbind data from the three periods together
-    for(i in 1:length(files)) {
+# for each unique type of data, rbind data from the three periods together
+  for(i in 1:length(files)) {
       
       pattern<-files[i]
       X<-mget(ls(pattern=pattern)) %>% bind_rows()
@@ -56,15 +56,15 @@ output:
       
     }
     
-  # clean environment
-    rm(i,pattern,files)
+# clean environment
+  rm(i,pattern,files)
 ```
 
 #### leaves a total of 18 unique dataframes
 
 
 ```r
-    ls()
+  ls()
 ```
 
 ```
@@ -85,7 +85,7 @@ output:
 
 
 ```r
-      str(minuteStepsNarrow) # steps per minute
+  str(minuteStepsNarrow) # steps per minute
 ```
 
 ```
@@ -99,7 +99,7 @@ output:
 
 
 ```r
-      str(minuteCaloriesNarrow) # calories burned each minute
+  str(minuteCaloriesNarrow) # calories burned each minute
 ```
 
 ```
@@ -113,7 +113,7 @@ output:
 
 
 ```r
-      str(minuteIntensitiesNarrow) # intensity of activity during each minute -- 0, 1, 2 and 3
+  str(minuteIntensitiesNarrow) # intensity of activity during each minute -- 0, 1, 2 and 3
 ```
 
 ```
@@ -127,7 +127,7 @@ output:
 
 
 ```r
-      str(minuteMETsNarrow) # MET value measued each minute
+  str(minuteMETsNarrow) # MET value measued each minute
 ```
 
 ```
@@ -141,7 +141,7 @@ output:
 
 
 ```r
-      str(heartrate_1min) # heart rate measured each minute -- fewer measurements than above
+  str(heartrate_1min) # heart rate measured each minute -- fewer measurements than above
 ```
 
 ```
@@ -155,7 +155,7 @@ output:
 
 
 ```r
-      str(minuteSleep) # sleep stage per minute?
+  str(minuteSleep) # sleep stage per minute?
 ```
 
 ```
@@ -170,7 +170,7 @@ output:
 
 
 ```r
-      str(`30secondSleepStages`) # sleep stages per 30 seconds? -- also fewer sleep observations
+  str(`30secondSleepStages`) # sleep stages per 30 seconds? -- also fewer sleep observations
 ```
 
 ```
@@ -190,27 +190,29 @@ output:
 
 
 ```r
-    minute <- minuteCaloriesNarrow %>% full_join(minuteIntensitiesNarrow, by = c("ActivityMinute","Id")) %>%
-                                       full_join(minuteMETsNarrow, by = c("ActivityMinute","Id")) %>%
-                                       full_join(minuteStepsNarrow, by = c("ActivityMinute","Id")) 
+  minute <- minuteCaloriesNarrow %>% full_join(minuteIntensitiesNarrow, by = c("ActivityMinute","Id")) %>%
+                                     full_join(minuteMETsNarrow, by = c("ActivityMinute","Id")) %>%
+                                     full_join(minuteStepsNarrow, by = c("ActivityMinute","Id")) 
 ```
 
 #### generate dateTime and date variables with common naming convention 
 
 
 ```r
-    minute$dateTime<-lubridate::mdy_hms(minute$ActivityMinute)
-    minute$date<-as.Date(minute$dateTime)
+  minute$dateTime<-lubridate::mdy_hms(minute$ActivityMinute)
+  minute$date<-as.Date(minute$dateTime)
 ```
 
 #### clean and rename the date/time variable in the minute-level sleep data 
 
 
 ```r
-# note: sleep observations are occasionally measured on the half minute, while all other data are consistently measured on the full minute. I investigated and sleep metrics are reported on either the half or the full minute within a given bout of sleep. As such, you can update the second value from ":30 " to ":00 " without introducing any duplciate records. This is necessary to merge these sleep records with the other minute-level dataframe 
+# sleep observations can be measured on the half or full minute (one or the other within a given bout of sleep)
+# as such, you can update the second value from ":30 " to ":00 " without introducing any duplciate records
+# this is necessary to merge sleep records with the other minute-level data (always measured on full minute)
 
-    minuteSleep$date<-gsub(":30 ",":00 ",minuteSleep$date)
-    minuteSleep$dateTime<-lubridate::mdy_hms(minuteSleep$date)
+  minuteSleep$date<-gsub(":30 ",":00 ",minuteSleep$date)
+  minuteSleep$dateTime<-lubridate::mdy_hms(minuteSleep$date)
 ```
 
 

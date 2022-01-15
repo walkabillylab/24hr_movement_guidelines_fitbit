@@ -9,8 +9,6 @@ output:
 
 ```{r setup, include=FALSE, results=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-install.packages("dplyr")
-install.packages("tidyr")
 library(dplyr)
 library(tidyr)
 knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
@@ -20,7 +18,7 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 
 ### read in data from three time periods: 
 
-```{r, results="hide", echo=FALSE}
+```{r, results="hide"}
 
   # nov 08 - nov 21
     nov08<-list.files("fitbit_data/nov08-nov21", pattern="*.csv", full.names=TRUE)
@@ -66,7 +64,27 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
     
   # clean environment
     rm(i,pattern,files)
+    
+```
+
+#### leaves a total of 18 unique dataframes
+
+```{r}
     ls()
+```
+
+### (1) minute-level data: 
+
+```{r}
+
+      str(minuteStepsNarrow) # steps per minute
+      str(minuteCaloriesNarrow) # calories burned each minute
+      str(minuteIntensitiesNarrow) # intensity of activity during each minute -- 0, 1, 2 and 3
+      str(minuteMETsNarrow) # MET value measued each minute
+      str(heartrate_1min) # heart rate measured each minute -- fewer measurements than above
+      str(`30secondSleepStages`) # sleep stages per 30 seconds? -- also fewer sleep observations
+      str(minuteSleep) # sleep stage per minute?
+      
 ```
 
 

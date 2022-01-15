@@ -135,5 +135,19 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
     minute$date<-as.Date(minute$dateTime)
 ```
 
+#### clean and rename the date/time variable in the minute-level sleep data 
+
+```{r}
+# note: sleep observations are occasionally measured on the half minute, while all other data are consistently measured on the full minute. I investigated and sleep metrics are reported on either the half or the full minute within a given bout of sleep. As such, you can update the second value from ":30 " to ":00 " without introducing any duplciate records. This is necessary to merge these sleep records with the other minute-level dataframe 
+
+    minuteSleep$date<-gsub(":30 ",":00 ",minuteSleep$date)
+    minuteSleep$dateTime<-lubridate::mdy_hms(minuteSleep$date)
+    
+```
+
+
+
+
+
 
 

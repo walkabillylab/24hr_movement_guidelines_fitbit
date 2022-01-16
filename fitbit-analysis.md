@@ -293,7 +293,7 @@ output:
 ```
 
 
-#### issue: there are duplicate sleep records for many participants
+#### issue: there are duplicate sleep records for most participants
 
 
 ```r
@@ -315,16 +315,14 @@ output:
 ## [1] 66
 ```
 
-```r
-  test3<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
-                                                       mutate(length=length(Id)) %>%
-                                                       mutate(unique=length(unique(value)))
-```
-
 #### note: all but 6 observations (3 minutes for 1 participants) are exact duplicates (same Id, date AND value)
 
 
 ```r
+  test3<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
+                                                       mutate(length=length(Id)) %>%
+                                                       mutate(unique=length(unique(value)))
+
 # however, only 6 records (3 minutes for 1 participant) have more than one unique "value" within the same minute
 # the rest of the duplicate rows are exact duplicates (same "value" (sleep stage) across both observations)
   table(test3[test3$length==2,]$unique) 
@@ -361,15 +359,7 @@ output:
 ```
 
 ```r
-  unique(test4[test4$length==2,]$Id)
-```
-
-```
-## [1] "B54"
-```
-
-```r
-# participant B54 has 800+ rows that are duplicates but the logId differs
+# 1 participant has 800+ rows that are duplicates but the logId differs
   minuteSleep<-distinct(minuteSleep, across(-"logId"),.keep_all = TRUE) 
   test4<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
                                                        mutate(length=length(Id)) %>%
@@ -381,14 +371,6 @@ output:
 ## 
 ##      1      2 
 ## 968857      6
-```
-
-```r
-  unique(test4[test4$length==2,]$Id)
-```
-
-```
-## [1] "B54"
 ```
 
 ```r

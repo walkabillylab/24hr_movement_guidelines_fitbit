@@ -79,6 +79,8 @@ output:
 ## [17] "sleepStagesDay"          "syncEvents"
 ```
 
+## minute-level data
+
 ### explore minute-level data (note date/time variable is "ActivityMinute" in most but not all dataframes)
 
 #### minute-level step count
@@ -193,6 +195,7 @@ output:
   minute <- minuteCaloriesNarrow %>% full_join(minuteIntensitiesNarrow, by = c("ActivityMinute","Id")) %>%
                                      full_join(minuteMETsNarrow, by = c("ActivityMinute","Id")) %>%
                                      full_join(minuteStepsNarrow, by = c("ActivityMinute","Id")) 
+  rm(minuteCaloriesNarrow,minuteIntensitiesNarrow,minuteMETsNarrow,minuteStepsNarrow)
 ```
 
 #### generate dateTime and date variables with common naming convention 
@@ -201,23 +204,203 @@ output:
 ```r
   minute$dateTime<-lubridate::mdy_hms(minute$ActivityMinute)
   minute$date<-as.Date(minute$dateTime)
+  min(minute$date)
 ```
 
-#### clean and rename the date/time variable in the minute-level sleep data 
+```
+## [1] "2021-11-08"
+```
+
+```r
+  max(minute$date)
+```
+
+```
+## [1] "2021-12-12"
+```
+
+### clean and explore minute-level sleep data
+
+#### issue: sleep observations can be measured on the half or full minute
 
 
 ```r
 # sleep observations can be measured on the half or full minute (one or the other within a given bout of sleep)
-# as such, you can update the second value from ":30 " to ":00 " without introducing any duplciate records
-# this is necessary to merge sleep records with the other minute-level data (always measured on full minute)
+  minuteSleep$test1<-ifelse(grepl(":30 ",minuteSleep$date),":30",":00")
+  table(minuteSleep$test1)
+```
 
+```
+## 
+##    :00    :30 
+## 621898 456049
+```
+
+```r
+# all other minute-level data is measured on the full minute
+  minute$test1<-ifelse(grepl(":30 ",minute$dateTime),":30",":00")
+  table(minute$test1)
+```
+
+```
+## 
+##     :00 
+## 3477600
+```
+
+#### solution: update the date all observations fall on the full minute (to align with other minute-level data)
+
+
+```r
+# since sleep is either measured at :00 or :30 within a bout of sleep,
+# we can update all records to ":00 " without introducing any duplicates
+# this is necessary to merge sleep records with the other minute-level data (always measured on full minute)
   minuteSleep$date<-gsub(":30 ",":00 ",minuteSleep$date)
   minuteSleep$dateTime<-lubridate::mdy_hms(minuteSleep$date)
+  minuteSleep$date<-as.Date(minuteSleep$dateTime)
+  minuteSleep$test2<-ifelse(grepl(":30 ",minuteSleep$date),":30",":00")
+  table(minuteSleep$test2)
+```
+
+```
+## 
+##     :00 
+## 1077947
 ```
 
 
+#### filter minute-level sleep data to to same time range as other data types
 
 
+```r
+  min(minuteSleep$date) # data from 2021-11-07 but other data types start 2021-11-08
+```
 
+```
+## [1] "2021-11-07"
+```
+
+```r
+  max(minuteSleep$date) # data from 2021-12-13, but other data types end 2021-12-12
+```
+
+```
+## [1] "2021-12-13"
+```
+
+```r
+  minuteSleep<-minuteSleep[minuteSleep$date>"2021-11-08" & minuteSleep$date<"2021-12-13",]
+```
+
+
+#### issue: there are duplicate sleep records for many participants
+
+
+```r
+  test<-minuteSleep %>% select(Id,dateTime) %>% group_by(Id,dateTime) %>% mutate(length=length(Id))
+  table(test$length) # this is unrelated to updating the date/time from :30 to :00 above
+```
+
+```
+## 
+##      1      2 
+## 911957 113806
+```
+
+```r
+  length(unique(test[test$length==2,]$Id)) # almost every participant has duplicate records for sleep
+```
+
+```
+## [1] 66
+```
+
+```r
+  test3<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
+                                                       mutate(length=length(Id)) %>%
+                                                       mutate(unique=length(unique(value)))
+```
+
+#### note: all but 6 observations (3 minutes for 1 participants) are exact duplicates (same Id, date AND value)
+
+
+```r
+# however, only 6 records (3 minutes for 1 participant) have more than one unique "value" within the same minute
+# the rest of the duplicate rows are exact duplicates (same "value" (sleep stage) across both observations)
+  table(test3[test3$length==2,]$unique) 
+```
+
+```
+## 
+##      1      2 
+## 113800      6
+```
+
+```r
+  rm(test,test3)
+```
+
+
+#### solution: remove duplicate records within the minute-level sleep data
+
+
+```r
+# create de-duplicated version of the minuteSleep dataframe
+# need to decide how to handle the 3 minutes with two unique "values"
+  minuteSleep<-distinct(minuteSleep) 
+  test4<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
+                                                       mutate(length=length(Id)) %>%
+                                                       mutate(unique=length(unique(value)))
+  table(test4$length)
+```
+
+```
+## 
+##      1      2 
+## 968427    866
+```
+
+```r
+  unique(test4[test4$length==2,]$Id)
+```
+
+```
+## [1] "B54"
+```
+
+```r
+# participant B54 has 800+ rows that are duplicates but the logId differs
+  minuteSleep<-distinct(minuteSleep, across(-"logId"),.keep_all = TRUE) 
+  test4<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
+                                                       mutate(length=length(Id)) %>%
+                                                       mutate(unique=length(unique(value)))
+  table(test4$length)
+```
+
+```
+## 
+##      1      2 
+## 968857      6
+```
+
+```r
+  unique(test4[test4$length==2,]$Id)
+```
+
+```
+## [1] "B54"
+```
+
+```r
+# decide what to do with B54 having two sleep values during the same minute
+```
+
+
+### merge minute-level sleep with other minute-level data
+
+
+```r
+  minute_test <- minute %>% full_join(minuteSleep, by = c("dateTime","Id"))
+```
 
 

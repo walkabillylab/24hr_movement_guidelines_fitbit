@@ -345,6 +345,7 @@ output:
 ```r
 # create de-duplicated version of the minuteSleep dataframe
 # need to decide how to handle the 3 minutes with two unique "values"
+  minuteSleep<-minuteSleep %>% select(-test1,-test2)
   minuteSleep<-distinct(minuteSleep) 
   test4<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
                                                        mutate(length=length(Id)) %>%
@@ -374,7 +375,9 @@ output:
 ```
 
 ```r
-# decide what to do with B54 having two sleep values during the same minute
+  rm(test4)
+  
+# decide what to do with duplicate records with differing "values"
 ```
 
 
@@ -382,7 +385,108 @@ output:
 
 
 ```r
-  minute_test <- minute %>% full_join(minuteSleep, by = c("dateTime","Id"))
+  minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id"))
+  rm(minuteSleep)
 ```
+
+## day-level data
+
+### explore day-level data
+
+#### day-level calories
+
+
+```r
+  str(dailyCalories)
+```
+
+```
+## 'data.frame':	2415 obs. of  3 variables:
+##  $ Id         : chr  "A01" "A01" "A01" "A01" ...
+##  $ ActivityDay: chr  "11/8/2021" "11/9/2021" "11/10/2021" "11/11/2021" ...
+##  $ Calories   : int  2362 2203 2047 2294 2353 2416 3083 1856 2185 2329 ...
+```
+
+#### day-level intensities
+
+
+```r
+  str(dailyIntensities)
+```
+
+```
+## 'data.frame':	2415 obs. of  10 variables:
+##  $ Id                      : chr  "A01" "A01" "A01" "A01" ...
+##  $ ActivityDay             : chr  "11/8/2021" "11/9/2021" "11/10/2021" "11/11/2021" ...
+##  $ SedentaryMinutes        : int  216 760 509 663 1174 513 977 653 688 731 ...
+##  $ LightlyActiveMinutes    : int  183 185 171 200 232 273 322 83 146 151 ...
+##  $ FairlyActiveMinutes     : int  30 9 0 17 11 10 83 8 13 26 ...
+##  $ VeryActiveMinutes       : int  19 14 0 30 23 8 56 13 26 40 ...
+##  $ SedentaryActiveDistance : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ LightActiveDistance     : num  3.26 2.84 2.83 3.09 3.02 ...
+##  $ ModeratelyActiveDistance: num  0.98 0.32 0 0.79 0.48 ...
+##  $ VeryActiveDistance      : num  1.39 1.05 0 2.24 1.78 ...
+```
+
+#### day-level steps
+
+
+```r
+  str(dailySteps)
+```
+
+```
+## 'data.frame':	2415 obs. of  3 variables:
+##  $ Id         : chr  "A01" "A01" "A01" "A01" ...
+##  $ ActivityDay: chr  "11/8/2021" "11/9/2021" "11/10/2021" "11/11/2021" ...
+##  $ StepTotal  : int  7893 5900 3978 8597 7421 8203 12910 3927 6836 9088 ...
+```
+
+#### day-level sleep 
+
+
+```r
+  str(sleepDay)
+```
+
+```
+## 'data.frame':	2166 obs. of  5 variables:
+##  $ Id                : chr  "A01" "A01" "A01" "A01" ...
+##  $ SleepDay          : chr  "11/8/2021 12:00:00 AM" "11/9/2021 12:00:00 AM" "11/10/2021 12:00:00 AM" "11/11/2021 12:00:00 AM" ...
+##  $ TotalSleepRecords : int  1 1 1 2 1 1 1 1 1 2 ...
+##  $ TotalMinutesAsleep: int  446 450 708 492 629 518 631 450 480 376 ...
+##  $ TotalTimeInBed    : int  496 472 760 530 636 597 655 492 518 409 ...
+```
+
+#### day-level sleep stages
+
+
+```r
+  str(sleepStagesDay) # same variables as above (Id, SleepDay, TotalSleepRecords, TotalMinutesAsleep, TotalTimeInBed) plus total minutes awake and spent in each sleep stage (light/deep/REM)
+```
+
+```
+## 'data.frame':	2415 obs. of  9 variables:
+##  $ Id                : chr  "A01" "A01" "A01" "A01" ...
+##  $ SleepDay          : chr  "11/8/2021 12:00:00 AM" "11/9/2021 12:00:00 AM" "11/10/2021 12:00:00 AM" "11/11/2021 12:00:00 AM" ...
+##  $ TotalSleepRecords : int  1 1 1 2 0 1 0 1 1 1 ...
+##  $ TotalMinutesAsleep: int  446 422 615 492 0 629 0 518 631 371 ...
+##  $ TotalTimeInBed    : int  496 472 760 530 0 636 0 597 655 492 ...
+##  $ TotalTimeAwake    : int  0 50 145 0 0 0 0 0 0 121 ...
+##  $ TotalMinutesLight : int  0 269 382 0 0 0 0 0 0 241 ...
+##  $ TotalMinutesDeep  : int  0 42 99 0 0 0 0 0 0 66 ...
+##  $ TotalMinutesREM   : int  0 111 134 0 0 0 0 0 0 64 ...
+```
+
+### merge day-level activity 
+
+
+```r
+  daily<-dailyCalories %>% full_join(dailyIntensities, by = c("ActivityDay","Id")) %>%
+                           full_join(dailySteps, by = c("ActivityDay","Id")) 
+  rm(dailyCalories,dailyIntensities,dailySteps)
+```
+
+
 
 

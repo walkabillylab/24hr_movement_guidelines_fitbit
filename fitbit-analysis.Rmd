@@ -216,6 +216,7 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 
 # create de-duplicated version of the minuteSleep dataframe
 # need to decide how to handle the 3 minutes with two unique "values"
+  minuteSleep<-minuteSleep %>% select(-test1,-test2)
   minuteSleep<-distinct(minuteSleep) 
   test4<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
                                                        mutate(length=length(Id)) %>%
@@ -228,8 +229,9 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
                                                        mutate(length=length(Id)) %>%
                                                        mutate(unique=length(unique(value)))
   table(test4$length)
+  rm(test4)
   
-# decide what to do with B54 having two sleep values during the same minute
+# decide what to do with duplicate records with differing "values"
   
 ```
 
@@ -237,7 +239,52 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 ### merge minute-level sleep with other minute-level data
 
 ```{r}
-  minute_test <- minute %>% full_join(minuteSleep, by = c("dateTime","Id"))
+  minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id"))
+  rm(minuteSleep)
 ```
+
+## day-level data
+
+### explore day-level data
+
+#### day-level calories
+
+```{r}
+  str(dailyCalories)
+```
+
+#### day-level intensities
+
+```{r}
+  str(dailyIntensities)
+```
+
+#### day-level steps
+
+```{r}
+  str(dailySteps)
+```
+
+#### day-level sleep 
+
+```{r}
+  str(sleepDay)
+```
+
+#### day-level sleep stages
+
+```{r}
+  str(sleepStagesDay) # same variables as above (Id, SleepDay, TotalSleepRecords, TotalMinutesAsleep, TotalTimeInBed) plus total minutes awake and spent in each sleep stage (light/deep/REM)
+```
+
+### merge day-level activity 
+
+```{r}
+  daily<-dailyCalories %>% full_join(dailyIntensities, by = c("ActivityDay","Id")) %>%
+                           full_join(dailySteps, by = c("ActivityDay","Id")) 
+  rm(dailyCalories,dailyIntensities,dailySteps)
+```
+
+
 
 

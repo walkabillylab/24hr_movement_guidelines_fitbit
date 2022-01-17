@@ -248,6 +248,10 @@ output:
 ## 3477600
 ```
 
+```r
+  minute<-minute %>% select(-test1)
+```
+
 #### solution: update the date all observations fall on the full minute (to align with other minute-level data)
 
 
@@ -385,9 +389,31 @@ output:
 
 
 ```r
-  minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id"))
+  minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id","date"))
   rm(minuteSleep)
 ```
+
+#### rename columns in minute-level data (so it is clear which columns are minute- vs. day-level)
+
+
+```r
+  minute<-minute %>% select(-ActivityMinute) %>% rename(minuteCalories=Calories,
+                                                        minuteIntensity=Intensity,
+                                                        minuteMETs=METs,
+                                                        minuteSteps=Steps,
+                                                        minuteSleepStage=value,
+                                                        minuteSleepLogId=logId) %>%
+                                                 relocate(dateTime,.after=Id) %>%
+                                                 relocate(date,.after=dateTime) 
+  names(minute)
+```
+
+```
+## [1] "Id"               "dateTime"         "date"             "minuteCalories"  
+## [5] "minuteIntensity"  "minuteMETs"       "minuteSteps"      "minuteSleepStage"
+## [9] "minuteSleepLogId"
+```
+
 
 ## day-level data
 
@@ -517,8 +543,37 @@ output:
 ```r
   daily<-daily %>% full_join(sleepStagesDay, by = c("date","Id"))
   daily<-daily %>% select(-ActivityDay,-SleepDay)
+  rm(sleepStagesDay)
 ```
 
+#### rename columns in day-level data (so it is clear which columns are minute- vs. day-level)
+
+
+```r
+  daily<-daily %>% rename(TotalCalories=Calories) %>%
+                   relocate(date,.after=Id) 
+  names(daily)
+```
+
+```
+##  [1] "Id"                       "date"                    
+##  [3] "TotalCalories"            "SedentaryMinutes"        
+##  [5] "LightlyActiveMinutes"     "FairlyActiveMinutes"     
+##  [7] "VeryActiveMinutes"        "SedentaryActiveDistance" 
+##  [9] "LightActiveDistance"      "ModeratelyActiveDistance"
+## [11] "VeryActiveDistance"       "StepTotal"               
+## [13] "TotalSleepRecords"        "TotalMinutesAsleep"      
+## [15] "TotalTimeInBed"           "TotalTimeAwake"          
+## [17] "TotalMinutesLight"        "TotalMinutesDeep"        
+## [19] "TotalMinutesREM"
+```
+
+### merge minute- and day-level dataframes
+
+
+```r
+  data<-merge(daily,minute,by=c("Id","date"))
+```
 
 
 

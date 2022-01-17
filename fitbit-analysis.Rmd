@@ -154,6 +154,7 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 # all other minute-level data is measured on the full minute
   minute$test1<-ifelse(grepl(":30 ",minute$dateTime),":30",":00")
   table(minute$test1)
+  minute<-minute %>% select(-test1)
   
 ```
 
@@ -239,9 +240,24 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 ### merge minute-level sleep with other minute-level data
 
 ```{r}
-  minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id"))
+  minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id","date"))
   rm(minuteSleep)
 ```
+
+#### rename columns in minute-level data (so it is clear which columns are minute- vs. day-level)
+
+```{r}
+  minute<-minute %>% select(-ActivityMinute) %>% rename(minuteCalories=Calories,
+                                                        minuteIntensity=Intensity,
+                                                        minuteMETs=METs,
+                                                        minuteSteps=Steps,
+                                                        minuteSleepStage=value,
+                                                        minuteSleepLogId=logId) %>%
+                                                 relocate(dateTime,.after=Id) %>%
+                                                 relocate(date,.after=dateTime) 
+  names(minute)
+```
+
 
 ## day-level data
 
@@ -305,8 +321,22 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 ```{r}
   daily<-daily %>% full_join(sleepStagesDay, by = c("date","Id"))
   daily<-daily %>% select(-ActivityDay,-SleepDay)
+  rm(sleepStagesDay)
 ```
 
+#### rename columns in day-level data (so it is clear which columns are minute- vs. day-level)
+
+```{r}
+  daily<-daily %>% rename(TotalCalories=Calories) %>%
+                   relocate(date,.after=Id) 
+  names(daily)
+```
+
+### merge minute- and day-level dataframes
+
+```{r}
+  data<-merge(daily,minute,by=c("Id","date"))
+```
 
 
 

@@ -277,12 +277,34 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
   str(sleepStagesDay) # same variables as above (Id, SleepDay, TotalSleepRecords, TotalMinutesAsleep, TotalTimeInBed) plus total minutes awake and spent in each sleep stage (light/deep/REM)
 ```
 
-### merge day-level activity 
+### merge day-level activity data
 
 ```{r}
   daily<-dailyCalories %>% full_join(dailyIntensities, by = c("ActivityDay","Id")) %>%
                            full_join(dailySteps, by = c("ActivityDay","Id")) 
   rm(dailyCalories,dailyIntensities,dailySteps)
+```
+
+#### generate date variable (named to align with date column in minute-level datasets)
+
+```{r}
+  str(daily$ActivityDay)
+  daily$date<-as.Date(daily$ActivityDay,"%m/%d/%Y")
+```
+
+### merge day-level activity data and day-level sleep data 
+
+#### generate date in the day-level sleep data 
+
+```{r}
+  sleepStagesDay$date<-as.Date(lubridate::mdy_hms(sleepStagesDay$SleepDay))
+```
+
+#### merge day-level activity data and day-level sleep data
+
+```{r}
+  daily<-daily %>% full_join(sleepStagesDay, by = c("date","Id"))
+  daily<-daily %>% select(-ActivityDay,-SleepDay)
 ```
 
 

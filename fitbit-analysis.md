@@ -478,13 +478,45 @@ output:
 ##  $ TotalMinutesREM   : int  0 111 134 0 0 0 0 0 0 64 ...
 ```
 
-### merge day-level activity 
+### merge day-level activity data
 
 
 ```r
   daily<-dailyCalories %>% full_join(dailyIntensities, by = c("ActivityDay","Id")) %>%
                            full_join(dailySteps, by = c("ActivityDay","Id")) 
   rm(dailyCalories,dailyIntensities,dailySteps)
+```
+
+#### generate date variable (named to align with date column in minute-level datasets)
+
+
+```r
+  str(daily$ActivityDay)
+```
+
+```
+##  chr [1:2415] "11/8/2021" "11/9/2021" "11/10/2021" "11/11/2021" ...
+```
+
+```r
+  daily$date<-as.Date(daily$ActivityDay,"%m/%d/%Y")
+```
+
+### merge day-level activity data and day-level sleep data 
+
+#### generate date in the day-level sleep data 
+
+
+```r
+  sleepStagesDay$date<-as.Date(lubridate::mdy_hms(sleepStagesDay$SleepDay))
+```
+
+#### merge day-level activity data and day-level sleep data
+
+
+```r
+  daily<-daily %>% full_join(sleepStagesDay, by = c("date","Id"))
+  daily<-daily %>% select(-ActivityDay,-SleepDay)
 ```
 
 

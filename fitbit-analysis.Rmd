@@ -135,6 +135,7 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 
 ```{r}
   heartrate_1min$ActivityMinute<-heartrate_1min$Time
+  heartrate_1min<-heartrate_1min %>% select(-Time)
   minute<-merge(minute,heartrate_1min,by=c("ActivityMinute","Id"),all.x=TRUE)
   rm(heartrate_1min)
 ```
@@ -144,11 +145,8 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 
 ```{r}
   minute$dateTime<-lubridate::mdy_hms(minute$ActivityMinute)
-  lubridate::tz(minute$dateTime)
   minute$date<-as.Date(minute$dateTime)
-  lubridate::tz(minute$date)
-  min(minute$date)
-  max(minute$date)
+  minute<-minute %>% select(-ActivityMinute)
 ```
 
 ### clean and explore minute-level sleep data
@@ -178,9 +176,7 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 # this is necessary to merge sleep records with the other minute-level data (always measured on full minute)
   minuteSleep$date<-gsub(":30 ",":00 ",minuteSleep$date)
   minuteSleep$dateTime<-lubridate::mdy_hms(minuteSleep$date)
-  lubridate::tz(minuteSleep$dateTime)
   minuteSleep$date<-as.Date(minuteSleep$dateTime)
-  lubridate::tz(minuteSleep$date)
   minuteSleep$test2<-ifelse(grepl(":30 ",minuteSleep$date),":30",":00")
   table(minuteSleep$test2)
   
@@ -190,22 +186,16 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 #### filter minute-level sleep data to to same time range as other data types
 
 ```{r}
-
-  min(minuteSleep$date) # data from 2021-11-07 but other data types start 2021-11-08
-  max(minuteSleep$date) # data from 2021-12-13, but other data types end 2021-12-12
   minuteSleep<-minuteSleep[minuteSleep$date>"2021-11-08" & minuteSleep$date<"2021-12-13",]
-
 ```
 
 
 #### issue: there are duplicate sleep records for most participants
 
 ```{r}
-
   test<-minuteSleep %>% select(Id,dateTime) %>% group_by(Id,dateTime) %>% mutate(length=length(Id))
   table(test$length) # this is unrelated to updating the date/time from :30 to :00 above
   length(unique(test[test$length==2,]$Id)) # almost every participant has duplicate records for sleep
-  
 ```
 
 #### note: all but 6 observations (3 minutes for 1 participants) are exact duplicates (same Id, date AND value)
@@ -254,21 +244,22 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 
 ```{r}
   minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id","date"))
+  rm(minuteSleep)
 ```
 
 #### rename columns in minute-level data (so it is clear which columns are minute- vs. day-level)
 
 ```{r}
-  minute<-minute %>% select(-ActivityMinute) %>% rename(minuteCalories=Calories,
-                                                        minuteHeartRate=Value,
-                                                        minuteIntensity=Intensity,
-                                                        minuteMETs=METs,
-                                                        minuteSteps=Steps,
-                                                        minuteSleepStage=value,
-                                                        minuteSleepLogId=logId) %>%
-                                                 relocate(dateTime,.after=Id) %>%
-                                                 relocate(date,.after=dateTime) %>%
-                                                 arrange(Id,dateTime)
+  minute<-minute %>% rename(minuteCalories=Calories,
+                            minuteHeartRate=Value,
+                            minuteIntensity=Intensity,
+                            minuteMETs=METs,
+                            minuteSteps=Steps,
+                            minuteSleepStage=value,
+                            minuteSleepLogId=logId) %>%
+                     relocate(dateTime,.after=Id) %>%
+                     relocate(date,.after=dateTime) %>%
+                     arrange(Id,dateTime)
 ```
 
 
@@ -376,6 +367,8 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 # sometimes there are multiple syncs within the same minute
   test<-battery %>% group_by(Id,dateTime) %>% mutate(length=length(Id),
                                                      unique=length(unique(Id)))
+  table(test$unique)
+  rm(test)
 ```
 
 
@@ -400,4 +393,134 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
   data<-merge(data,battery,by=c("Id","dateTime"),all=TRUE)
   rm(battery)
 ```
+
+## explore remaining dataframes
+
+### sleepLogInfo
+
+```{r}
+# contains other information re: sleep, including the time they went to sleep, how efficient the sleep was, minutes to fall asleep, time in bed, awakeCount, AwakeDuration, RestlessCount, Restless Duration
+# may not be necessary for this study? will omit for now and revisit
+  str(sleepLogInfo)
+  rm(sleepLogInfo)
+```
+
+### sleepStageLogInfo
+
+```{r}
+# more information relating to each individual sleep bout of sleep, including the time spent in each intensity
+# however, primary dataframe (data) already contains much of the high-level summary statistics re: sleep
+  str(sleepStageLogInfo)
+  rm(sleepStageLogInfo)
+```
+
+### 30 second sleep stages
+
+```{r}
+# already have minute-level sleep stages (incorporated into the dataframe)
+  str(`30secondSleepStages`)
+  rm(`30secondSleepStages`)
+```
+
+### heartRateZones
+
+```{r}
+# long dataset with day-level heart rate zone information 
+# four rows per person, one per each zone (out of range, fat burn, cardio, peak)
+# structured this way to have a min and max column defining the heart rate range corresponding to the label (range will differ between participants)
+  str(heartRateZones)
+```
+
+#### re-structure heartRateZones before merging
+
+```{r}
+
+# create a "range column" for each (can always parse into min/max columns if necessary?)
+  heartRateZones$range<-paste(heartRateZones$Min,"-",heartRateZones$Max,sep="")
+
+# pivot wider
+  HRrange<-heartRateZones %>% select(Id,ActivityDay,ZoneName,range)
+  HRrange<-pivot_wider(data=HRrange,id_cols=c("Id","ActivityDay"),names_from="ZoneName",values_from="range")
+  HRrange<-HRrange %>% rename(range_outOfRange=`Out of Range`,
+                              range_fatBurn=`Fat Burn`,
+                              range_cardio=`Cardio`,
+                              range_peak=`Peak`)
+  
+# generate minutes in each HR zone
+  HRzoneMinutes<-heartRateZones %>% select(Id,ActivityDay,ZoneName,Minutes)
+  HRzoneMinutes<-pivot_wider(data=HRzoneMinutes,id_cols=c("Id","ActivityDay"),names_from="ZoneName",values_from="Minutes")
+  HRzoneMinutes<-HRzoneMinutes %>% rename(total_outOfRange=`Out of Range`,
+                                          total_fatBurn=`Fat Burn`,
+                                          total_cardio=`Cardio`,
+                                          total_peak=`Peak`)
+  
+# merge back together
+  HRzones<-HRrange %>% full_join(HRzoneMinutes,by=c("Id","ActivityDay"))
+  
+# remove dataframes I don't need
+  rm(HRzoneMinutes,heartRateZones,HRrange)
+```
+
+#### generate date column in day-level heartrate zone data
+
+```{r}
+  HRzones$date<-as.Date(HRzones$ActivityDay,"%m/%d/%Y")
+  HRzones<-HRzones %>% select(-ActivityDay)
+```
+
+#### merge with data
+
+```{r}
+  data<-merge(data,HRzones,by=c("Id","date"))
+  rm(HRzones)
+```
+
+### activitylogs
+
+```{r}
+# similar to sleepLogInfo and sleepStageLogInfo, but for workouts
+# one row per workout
+  str(activitylogs)
+```
+
+#### can merge workout data at the start time?
+
+```{r}
+  activitylogs$dateTime<-paste(activitylogs$Date,activitylogs$StartTime,sep=" ")
+  substr(activitylogs$dateTime,18,19)<-"00"
+  activitylogs$dateTime<-lubridate::mdy_hms(activitylogs$dateTime)
+```
+
+#### select and rename columns 
+
+```{r}
+  names(activitylogs)
+  activitylogs<-activitylogs %>% select(-Date,-StartTime,-ActivityType) %>%
+                                 rename(activity_duration=Duration,
+                                        activity=Activity,
+                                        activity_logType=LogType,
+                                        activity_steps=Steps,
+                                        activity_distance=Distance,
+                                        activity_elevationGain=ElevationGain,
+                                        activity_calories=Calories,
+                                        activity_sedentaryMins=SedentaryMinutes,
+                                        activity_lightlyActiveMins=LightlyActiveMinutes,
+                                        activity_fairlyActiveMins=FairlyActiveMinutes,
+                                        activity_veryActiveMins=VeryActiveMinutes,
+                                        activity_avgHeartRate=AverageHeartRate,
+                                        activity_outOfRangeMins=OutOfRangeHeartRateMinutes,
+                                        activity_fatBurnMins=FatBurnHeartRateMinutes,
+                                        activity_cardioMins=CardioHeartRateMinutes,
+                                        activity_peakMins=PeakHeartRateMinutes)
+```
+
+
+#### merge with data
+
+```{r}
+  names(activitylogs)
+  data<-merge(data,activitylogs,by=c("Id","dateTime"),all.x=TRUE)
+  rm(activitylogs)
+```
+
 

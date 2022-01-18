@@ -198,12 +198,38 @@ output:
   rm(minuteCaloriesNarrow,minuteIntensitiesNarrow,minuteMETsNarrow,minuteStepsNarrow)
 ```
 
+#### merge minute-level heart rate data to other minute-level activity data
+
+
+```r
+  heartrate_1min$ActivityMinute<-heartrate_1min$Time
+  minute<-merge(minute,heartrate_1min,by=c("ActivityMinute","Id"),all.x=TRUE)
+  rm(heartrate_1min)
+```
+
+
 #### generate dateTime and date variables with common naming convention 
 
 
 ```r
   minute$dateTime<-lubridate::mdy_hms(minute$ActivityMinute)
+  lubridate::tz(minute$dateTime)
+```
+
+```
+## [1] "UTC"
+```
+
+```r
   minute$date<-as.Date(minute$dateTime)
+  lubridate::tz(minute$date)
+```
+
+```
+## [1] "UTC"
+```
+
+```r
   min(minute$date)
 ```
 
@@ -261,7 +287,23 @@ output:
 # this is necessary to merge sleep records with the other minute-level data (always measured on full minute)
   minuteSleep$date<-gsub(":30 ",":00 ",minuteSleep$date)
   minuteSleep$dateTime<-lubridate::mdy_hms(minuteSleep$date)
+  lubridate::tz(minuteSleep$dateTime)
+```
+
+```
+## [1] "UTC"
+```
+
+```r
   minuteSleep$date<-as.Date(minuteSleep$dateTime)
+  lubridate::tz(minuteSleep$date)
+```
+
+```
+## [1] "UTC"
+```
+
+```r
   minuteSleep$test2<-ifelse(grepl(":30 ",minuteSleep$date),":30",":00")
   table(minuteSleep$test2)
 ```
@@ -390,7 +432,6 @@ output:
 
 ```r
   minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id","date"))
-  rm(minuteSleep)
 ```
 
 #### rename columns in minute-level data (so it is clear which columns are minute- vs. day-level)
@@ -398,20 +439,15 @@ output:
 
 ```r
   minute<-minute %>% select(-ActivityMinute) %>% rename(minuteCalories=Calories,
+                                                        minuteHeartRate=Value,
                                                         minuteIntensity=Intensity,
                                                         minuteMETs=METs,
                                                         minuteSteps=Steps,
                                                         minuteSleepStage=value,
                                                         minuteSleepLogId=logId) %>%
                                                  relocate(dateTime,.after=Id) %>%
-                                                 relocate(date,.after=dateTime) 
-  names(minute)
-```
-
-```
-## [1] "Id"               "dateTime"         "date"             "minuteCalories"  
-## [5] "minuteIntensity"  "minuteMETs"       "minuteSteps"      "minuteSleepStage"
-## [9] "minuteSleepLogId"
+                                                 relocate(date,.after=dateTime) %>%
+                                                 arrange(Id,dateTime)
 ```
 
 
@@ -504,6 +540,11 @@ output:
 ##  $ TotalMinutesREM   : int  0 111 134 0 0 0 0 0 0 64 ...
 ```
 
+```r
+  # will use sleepStagesDay instead of sleepDay because it contains all of the same and more information
+  rm(sleepDay)
+```
+
 ### merge day-level activity data
 
 
@@ -526,6 +567,11 @@ output:
 
 ```r
   daily$date<-as.Date(daily$ActivityDay,"%m/%d/%Y")
+  lubridate::tz(daily$date)
+```
+
+```
+## [1] "UTC"
 ```
 
 ### merge day-level activity data and day-level sleep data 
@@ -573,7 +619,71 @@ output:
 
 ```r
   data<-merge(daily,minute,by=c("Id","date"))
+  rm(daily,minute)
+```
+
+## add battery (and syncEvents) data
+
+### explore data
+
+#### clean columns in battery data
+
+
+```r
+  battery$dateTime<-as.character(lubridate::mdy_hms(battery$DateTime))
+  substr(battery$dateTime,18,19)<-"00"
+  battery$dateTime<-as.POSIXct(battery$dateTime,tz="UTC")
+  lubridate::tz(battery$dateTime)
+```
+
+```
+## [1] "UTC"
+```
+
+```r
+  battery$lastSync<-lubridate::mdy_hms(battery$LastSync)
+  battery<-battery %>% select(Id,dateTime,lastSync,DeviceName,BatteryLevel)
+```
+
+#### sometimes there are multiple sync's per minute, but they always have the same battery level
+
+
+```r
+# sometimes there are multiple syncs within the same minute
+  test<-battery %>% group_by(Id,dateTime) %>% mutate(length=length(Id),
+                                                     unique=length(unique(Id)))
 ```
 
 
+#### take list of distinct battery measurements (one per minute maximum)
+
+
+```r
+  battery<-distinct(battery,across(-"lastSync"))
+```
+
+
+#### explore syncEvents - contains no additional info above and beyond battery data
+
+
+```r
+  names(syncEvents)
+```
+
+```
+## [1] "Id"          "DateTime"    "SyncDateUTC" "Provider"    "DeviceName"
+```
+
+```r
+# will use battery data instead (has the same and more information as syncEvents)
+  rm(syncEvents)
+```
+
+### merge battery data with activity and sleep data
+
+
+```r
+  data<-merge(data,battery,by=c("Id","dateTime"),all=TRUE)
+  rm(battery)
+```
 

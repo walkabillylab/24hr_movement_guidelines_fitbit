@@ -131,11 +131,22 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
   rm(minuteCaloriesNarrow,minuteIntensitiesNarrow,minuteMETsNarrow,minuteStepsNarrow)
 ```
 
+#### merge minute-level heart rate data to other minute-level activity data
+
+```{r}
+  heartrate_1min$ActivityMinute<-heartrate_1min$Time
+  minute<-merge(minute,heartrate_1min,by=c("ActivityMinute","Id"),all.x=TRUE)
+  rm(heartrate_1min)
+```
+
+
 #### generate dateTime and date variables with common naming convention 
 
 ```{r}
   minute$dateTime<-lubridate::mdy_hms(minute$ActivityMinute)
+  lubridate::tz(minute$dateTime)
   minute$date<-as.Date(minute$dateTime)
+  lubridate::tz(minute$date)
   min(minute$date)
   max(minute$date)
 ```
@@ -167,7 +178,9 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 # this is necessary to merge sleep records with the other minute-level data (always measured on full minute)
   minuteSleep$date<-gsub(":30 ",":00 ",minuteSleep$date)
   minuteSleep$dateTime<-lubridate::mdy_hms(minuteSleep$date)
+  lubridate::tz(minuteSleep$dateTime)
   minuteSleep$date<-as.Date(minuteSleep$dateTime)
+  lubridate::tz(minuteSleep$date)
   minuteSleep$test2<-ifelse(grepl(":30 ",minuteSleep$date),":30",":00")
   table(minuteSleep$test2)
   
@@ -241,21 +254,21 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 
 ```{r}
   minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id","date"))
-  rm(minuteSleep)
 ```
 
 #### rename columns in minute-level data (so it is clear which columns are minute- vs. day-level)
 
 ```{r}
   minute<-minute %>% select(-ActivityMinute) %>% rename(minuteCalories=Calories,
+                                                        minuteHeartRate=Value,
                                                         minuteIntensity=Intensity,
                                                         minuteMETs=METs,
                                                         minuteSteps=Steps,
                                                         minuteSleepStage=value,
                                                         minuteSleepLogId=logId) %>%
                                                  relocate(dateTime,.after=Id) %>%
-                                                 relocate(date,.after=dateTime) 
-  names(minute)
+                                                 relocate(date,.after=dateTime) %>%
+                                                 arrange(Id,dateTime)
 ```
 
 
@@ -291,6 +304,8 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 
 ```{r}
   str(sleepStagesDay) # same variables as above (Id, SleepDay, TotalSleepRecords, TotalMinutesAsleep, TotalTimeInBed) plus total minutes awake and spent in each sleep stage (light/deep/REM)
+  # will use sleepStagesDay instead of sleepDay because it contains all of the same and more information
+  rm(sleepDay)
 ```
 
 ### merge day-level activity data
@@ -306,6 +321,7 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 ```{r}
   str(daily$ActivityDay)
   daily$date<-as.Date(daily$ActivityDay,"%m/%d/%Y")
+  lubridate::tz(daily$date)
 ```
 
 ### merge day-level activity data and day-level sleep data 
@@ -336,7 +352,52 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 
 ```{r}
   data<-merge(daily,minute,by=c("Id","date"))
+  rm(daily,minute)
+```
+
+## add battery (and syncEvents) data
+
+### explore data
+
+#### clean columns in battery data
+
+```{r}
+  battery$dateTime<-as.character(lubridate::mdy_hms(battery$DateTime))
+  substr(battery$dateTime,18,19)<-"00"
+  battery$dateTime<-as.POSIXct(battery$dateTime,tz="UTC")
+  lubridate::tz(battery$dateTime)
+  battery$lastSync<-lubridate::mdy_hms(battery$LastSync)
+  battery<-battery %>% select(Id,dateTime,lastSync,DeviceName,BatteryLevel)
+```
+
+#### sometimes there are multiple sync's per minute, but they always have the same battery level
+
+```{r}
+# sometimes there are multiple syncs within the same minute
+  test<-battery %>% group_by(Id,dateTime) %>% mutate(length=length(Id),
+                                                     unique=length(unique(Id)))
 ```
 
 
+#### take list of distinct battery measurements (one per minute maximum)
+
+```{r}
+  battery<-distinct(battery,across(-"lastSync"))
+```
+
+
+#### explore syncEvents - contains no additional info above and beyond battery data
+
+```{r}
+  names(syncEvents)
+# will use battery data instead (has the same and more information as syncEvents)
+  rm(syncEvents)
+```
+
+### merge battery data with activity and sleep data
+
+```{r}
+  data<-merge(data,battery,by=c("Id","dateTime"),all=TRUE)
+  rm(battery)
+```
 

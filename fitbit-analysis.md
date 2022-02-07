@@ -482,6 +482,7 @@ The remaining 6 duplicates represent 3 minutes from one participant where the va
   minuteSleep$value<-ifelse(minuteSleep$Id %in% duplicates$Id & 
                             minuteSleep$dateTime %in% duplicates$dateTime,NA,minuteSleep$value)
   minuteSleep<-distinct(minuteSleep,across(-"logId"),.keep_all = TRUE) 
+  rm(duplicates)
 ```
 
 
@@ -762,14 +763,6 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
   battery$dateTime<-as.character(lubridate::mdy_hms(battery$DateTime))
   substr(battery$dateTime,18,19)<-"00"
   battery$dateTime<-as.POSIXct(battery$dateTime,tz="UTC")
-  lubridate::tz(battery$dateTime)
-```
-
-```
-## [1] "UTC"
-```
-
-```r
   battery$lastSync<-lubridate::mdy_hms(battery$LastSync)
   battery<-battery %>% select(Id,dateTime,lastSync,DeviceName,BatteryLevel)
 ```
@@ -1067,23 +1060,6 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
 ### generate count of workouts per day, unique types of workouts per day, total duration of workouts
 
 ```r
-  names(activitylogs)
-```
-
-```
-##  [1] "Id"                         "date"                      
-##  [3] "dateTime"                   "activity_duration"         
-##  [5] "activity"                   "activity_logType"          
-##  [7] "activity_steps"             "activity_distance"         
-##  [9] "activity_elevationGain"     "activity_calories"         
-## [11] "activity_sedentaryMins"     "activity_lightlyActiveMins"
-## [13] "activity_fairlyActiveMins"  "activity_veryActiveMins"   
-## [15] "activity_avgHeartRate"      "activity_outOfRangeMins"   
-## [17] "activity_fatBurnMins"       "activity_cardioMins"       
-## [19] "activity_peakMins"
-```
-
-```r
   activitylogs$activity_duration<-activitylogs$activity_sedentaryMins+
                                   activitylogs$activity_lightlyActiveMins+
                                   activitylogs$activity_fairlyActiveMins+
@@ -1101,24 +1077,6 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
 
 
 ```r
-  names(activitylogs)
-```
-
-```
-##  [1] "Id"                         "date"                      
-##  [3] "dateTime"                   "day_activity_count"        
-##  [5] "day_activity_duration"      "day_activity_unique"       
-##  [7] "activity_duration"          "activity"                  
-##  [9] "activity_logType"           "activity_steps"            
-## [11] "activity_distance"          "activity_elevationGain"    
-## [13] "activity_calories"          "activity_sedentaryMins"    
-## [15] "activity_lightlyActiveMins" "activity_fairlyActiveMins" 
-## [17] "activity_veryActiveMins"    "activity_avgHeartRate"     
-## [19] "activity_outOfRangeMins"    "activity_fatBurnMins"      
-## [21] "activity_cardioMins"        "activity_peakMins"
-```
-
-```r
   data<-merge(data,activitylogs[,!(colnames(activitylogs) %in% c("date"))],by=c("Id","dateTime"),all.x=TRUE)
   rm(activitylogs)
 ```
@@ -1126,44 +1084,6 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
 ## D. Compare minute-level and day-level data
 
 Aggregate at the level of the day
-
-```r
-  names(data)
-```
-
-```
-##  [1] "Id"                         "dateTime"                  
-##  [3] "date"                       "TotalCalories"             
-##  [5] "SedentaryMinutes"           "LightlyActiveMinutes"      
-##  [7] "FairlyActiveMinutes"        "VeryActiveMinutes"         
-##  [9] "SedentaryActiveDistance"    "LightActiveDistance"       
-## [11] "ModeratelyActiveDistance"   "VeryActiveDistance"        
-## [13] "StepTotal"                  "TotalSleepRecords"         
-## [15] "TotalMinutesAsleep"         "TotalTimeInBed"            
-## [17] "TotalTimeAwake"             "TotalMinutesLight"         
-## [19] "TotalMinutesDeep"           "TotalMinutesREM"           
-## [21] "intervention"               "minuteCalories"            
-## [23] "minuteMETs"                 "minuteSteps"               
-## [25] "minuteHeartRate"            "minuteSleepStage"          
-## [27] "minuteSleepLogId"           "minuteIntensity1"          
-## [29] "non-wear"                   "minuteSedentary"           
-## [31] "minuteLightlyActive"        "minuteFairlyActive"        
-## [33] "minuteVeryActive"           "DeviceName"                
-## [35] "BatteryLevel"               "range_outOfRange"          
-## [37] "range_fatBurn"              "range_cardio"              
-## [39] "range_peak"                 "total_outOfRange"          
-## [41] "total_fatBurn"              "total_cardio"              
-## [43] "total_peak"                 "day_activity_count"        
-## [45] "day_activity_duration"      "day_activity_unique"       
-## [47] "activity_duration"          "activity"                  
-## [49] "activity_logType"           "activity_steps"            
-## [51] "activity_distance"          "activity_elevationGain"    
-## [53] "activity_calories"          "activity_sedentaryMins"    
-## [55] "activity_lightlyActiveMins" "activity_fairlyActiveMins" 
-## [57] "activity_veryActiveMins"    "activity_avgHeartRate"     
-## [59] "activity_outOfRangeMins"    "activity_fatBurnMins"      
-## [61] "activity_cardioMins"        "activity_peakMins"
-```
 
 ```r
   assess<-data %>% group_by(Id,date) %>% summarise(Id=identity(Id),
@@ -1437,11 +1357,12 @@ Merge time-varying engagement variables
 Merge minute-level HR with ages
 
 ```r
-  minHR<-merge(minute[minute$Id!="Study Coordinator QU",
+  minSimple<-minute[minute$Id!="Study Coordinator QU",
                                colnames(minute) %in%
-                               c("Id","dateTime","date","minuteHeartRate","minuteIntensity1","minuteSteps")],
-               engage_participant[,colnames(engage_participant) %in% c("Id","Age")],by=c("Id"))
+                               c("Id","dateTime","date","minuteHeartRate","minuteIntensity1","minuteSteps")]
+  minHR<-merge(minSimple,engage_participant[,colnames(engage_participant) %in% c("Id","Age")],by=c("Id"))
   minHR<-distinct(minHR)
+  rm(minSimple)
 ```
 
 ### Generate alternative intensity categories using demographics
@@ -1478,10 +1399,9 @@ based on research from Catrine Tudor-Locke, 100 steps/minute and 130 steps/minut
 
 #### minuteIntensity3: Karvonen formula
 
-Karvonen formula estimates maximum heart rate by subtracting age from 220. Since all participants are 19-20, I'll assume 200 as the max heart rate for all participants. This can be updated once demographic data is available for all participants. Moderate intensity activity is 40-60% of max heart rate, vigorous is >60% max heart rate (https://bcmj.org/articles/science-exercise-prescription-martti-karvonen-and-his-contributions)
+Karvonen formula estimates: calculate heart rate resevere by taking maximum - resting heart rate. We then calculate the threshold HR (approximately corresponding to MVPA) by taking resting heart rate + heart rate reserve (maximum minus resting), multiplied by 0.4 (40%). Max is calculated by taking 220 minus age, and resting is estimated as the median HR among records under 80 bpm for that particular participant (https://bcmj.org/articles/science-exercise-prescription-martti-karvonen-and-his-contributions)
 
 ```r
-# flag a minute as MVPA if minuteHeartRate 80 or greater (40% of 200)
 # heart rate reserve = max - resting (how to determine resting heart rate?) (mean/median of values less than 80 as resting heart rate)
 # resting + (max-resting)*0.4
 # 60 + (140)*0.4 = 116
@@ -1536,6 +1456,19 @@ There is not a lot of agreement here... more minutes categorized as 2/3 intensit
 ## X-squared = 1179292, df = 1, p-value < 2.2e-16
 ```
 
+Next steps: Replace chi-square with non-parametric ranked statistic (to revisit). For now, I will proceed using the day-level intensity data provided by Fitbit (minutes spent in each intensity category) 
+
+Remove engagement data frames
+
+```r
+  rm(engage,engage_participant,engage_time_varying,estHR)
+```
+
+```
+## Warning in rm(engage, engage_participant, engage_time_varying, estHR): object
+## 'estHR' not found
+```
+
 
 # 4. Analysis
 
@@ -1569,36 +1502,49 @@ Add week start date and day of week for plotting and analysis
   daily$mon_wed<-ifelse(daily$weekday %in% c("Monday","Wednesday"),"yes","no")
 ```
 
-Calculate daily minutes of MVPA 
+Calculate daily minutes of MVPA by adding fairly active and very active minutes
 
 ```r
   daily$totalMVPA<-daily$FairlyActiveMinutes+daily$VeryActiveMinutes
 ```
 
-Generate count of engagements per day
+Remove participant-days where totalMVPA is na
 
 ```r
+  daily<-daily[!is.na(daily$totalMVPA),]
+```
+
+Generate count of clicks and engagements per participant per day: group by date and Id, sum the binary/dummy variable for clicks and engagements to generate a count per day per participant
+
+```r
+# set click and engage to 0 if na
+  daily$click<-ifelse(is.na(daily$click),0,daily$click)
+  daily$engage<-ifelse(is.na(daily$engage),0,daily$engage)
   daily<-daily %>% group_by(Id,date) %>% mutate(countEngage=sum(engage),
                                                 countClick=sum(click))
-  daily$countClick<-ifelse(is.na(daily$countClick),0,daily$countClick)
-  daily$countEngage<-ifelse(is.na(daily$countEngage),0,daily$countEngage)
 ```
 
 Calculate average daily clicks and engagements per participant, and per participant and period (pre, intervention, post)
 
 ```r
   daily<-daily %>% group_by(Id) %>% mutate(meanDailyClick=mean(countClick),
-                                           meanDailyEngage=mean(countEngage)) %>%
+                                           meanDailyEngage=mean(countEngage),
+                                           meanDailyMVPA=mean(totalMVPA),
+                                           medianDailyMVPA=median(totalMVPA)) %>%
                    group_by(Id,intervention) %>% mutate(meanDailyClickPeriod=mean(countClick),
-                                                        meanDailyEngagePeriod=mean(countEngage))
+                                                        meanDailyEngagePeriod=mean(countEngage),
+                                                        meanDailyMVPAPeriod=mean(totalMVPA),
+                                                        medianDailyMVPAPeriod=median(totalMVPA))
 ```
 
-Create person-level dataset for plots. Currently, the "daily" dataframe has one row per person-day-article, so if someone engages with two different articles, they have two rows in the dataframe. I want a maximum of one row per person per day for data exploration. 
+Create person-day-level and person-level datasets for plots. Currently, the "daily" dataframe has one row per person-day-article, so if someone engages with two different articles, they have two rows in the dataframe. I want a maximum of one row per person per day for data exploration. 
 
 ```r
   dailyForPlots<-daily[!is.na(daily$totalMVPA),] %>% select(-title,-intervention_content,-featured_content,-pubdate,-weekofpublish,
                                                             -type,-click,-engage)
   dailyForPlots<-distinct(dailyForPlots)
+  person<-daily %>% ungroup() %>% select(Id,ever_engage,meanDailyClick,meanDailyEngage,meanDailyMVPA,medianDailyMVPA) %>% distinct
+  personPeriod<-daily %>% ungroup() %>% select(Id,ever_engage,intervention,meanDailyClickPeriod,meanDailyEngagePeriod,meanDailyMVPAPeriod,medianDailyMVPAPeriod) %>% distinct
 ```
 
 ## Engagement and clicks:
@@ -1613,7 +1559,7 @@ Total clicks and engagements, when summed across participants, appear somewhat c
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-98-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-100-1.png)<!-- -->
 <!-- #### Mean total engagements and clicks per weekday and intervention period -->
 <!-- Mean total clicks and engagement, calculated as the sum of clicks/engagement for a given weekday in each of the pre-intervention, intervention and post-intervention periods for all participants, divided by the number of dates reflected in the calculation. This is to make the three periods comparable, even though the pre- and post- periods are only ~7 days each.  -->
 
@@ -1621,14 +1567,13 @@ Total clicks and engagements, when summed across participants, appear somewhat c
 
 #### Distribution of clicks and engagement per participant and day
 The vast majority of participant-days had 0 clicks and 0 engagement. 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-100-1.png)<!-- -->
-
+![](fitbit-analysis_files/figure-html/unnamed-chunk-102-1.png)<!-- -->
 #### Number of clicks and engagement per participant and day over time
 It is hard to make out any interesting patterns because there are so many participant-days with 0 engagement and/or clicks (as observed above)
-![](fitbit-analysis_files/figure-html/unnamed-chunk-101-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-103-1.png)<!-- -->
 
 #### Mean daily clicks and engagement over time
-It is easier to see trends in daily clicks and engagement over time using mean clicks and engagement per day (calculated as the sum of all clicks and engagements on a given date divided by the number of participants that contributed data on that date, respectively). Please note, we cannot use median, as the median clicks and median engagement is 0 everyday. 
+It is easier to see trends in daily clicks and engagement over time using mean clicks and engagement per day (calculated by taking the mean of both countClick (count of clicks per person per day) and countEngage (count of engagement per person per day) across all participants for each day in the study period. Please note, we cannot use median, as the median clicks and median engagement is 0 everyday. 
 
 ```
 ## [1] TRUE
@@ -1643,18 +1588,18 @@ It is easier to see trends in daily clicks and engagement over time using mean c
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-102-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-104-1.png)<!-- -->
 
 <!-- #### Clicks and engagement over time, by intervention period -- Excluding for now -->
 
 
 #### Clicks and engagement by weekday in the pre, intervention and post intervention period
 I am interested in assessing if daily clicks and/or engagement (at the participant level) varies by day of the week. It looks like clicks and engagement are higher during the work week, particularly during the intervention period, but it is difficult to tell because there are also more Mondays, Tuesday, etc. during this period (since it is much longer). 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-104-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-106-1.png)<!-- -->
 
 #### Mean clicks and engagement, by weekday and period
-Mean clicks and engagement is calculated by taking the mean daily click and/or engagement count across all participants, separately for each weekday in each of the pre-intervention, intervention and post-intervention periods. It appears that the mean clicks and mean engagement by day of the week differ between the pre-intervention, intervention and post-intervention periods. 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-105-1.png)<!-- -->
+Mean clicks and engagement is calculated by taking the mean daily click and/or engagement count across all participants, separately for each weekday, in each of the pre-intervention, intervention and post-intervention periods. It appears that the mean clicks and mean engagement by day of the week differ between the pre-intervention, intervention and post-intervention periods, but trends look similar for both clicks and engagements. 
+![](fitbit-analysis_files/figure-html/unnamed-chunk-107-1.png)<!-- -->
 
 ## MVPA
 
@@ -1666,7 +1611,7 @@ First, lets assess the distribution of MVPA across participant-days. Similar to 
 ##    0.00    0.00   29.00   40.42   58.00  498.00
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-106-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-108-1.png)<!-- -->
 
 ### Plot of minutes of MVPA per day over time -- overall and comparing engagers and non-engagers
 Next, lets assess how daily MVPA varies over time. There is no obvious trend over time, though there is a slight bow to the loess line that appears to correspond (roughly) to the intervention period. 
@@ -1675,15 +1620,15 @@ Next, lets assess how daily MVPA varies over time. There is no obvious trend ove
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-107-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-109-1.png)<!-- -->
 
-Interestingly, this "bowing" of the loess curve appears to be driven by participants that engaged with the app content (at least once)
+Interestingly, this "bowing" of the loess curve appears to be driven by participants that engaged with the app content (at least once); a light downward trend is observed among non-engagers
 
 ```
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-108-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-110-1.png)<!-- -->
 
 #### Minutes of MVPA per day and participant - Queen's vs. UBC
 Overall, MVPA is slightly higher at Queens; MVPA is lower at UBC and dips slightly during the intervention period. 
@@ -1692,7 +1637,7 @@ Overall, MVPA is slightly higher at Queens; MVPA is lower at UBC and dips slight
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-109-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-111-1.png)<!-- -->
 
 The relationship between MVPA and campus also differs when you stratify by engagers and non-engagers. Among engagers, participant's at Queen's were more active, and there appears to be a slightly increase in MVPA during the intervention period (as seen above), while engagers at UBC exhibited a dip in daily MVPA during the middle of the intervention period (left panel). Converely, non-engagers at UBC were more active than non-engagers at Queen's (right), though daily MVPA remained largely stable at both campuses over time. 
 
@@ -1700,7 +1645,7 @@ The relationship between MVPA and campus also differs when you stratify by engag
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-110-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-112-1.png)<!-- -->
 
 #### Minutes of MVPA per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
 Intervention content was released on Mondays and Wednesdays. The following plot would suggest no major difference in daily MVPA on Monday/Wednesday vs. other days of the week. 
@@ -1709,15 +1654,7 @@ Intervention content was released on Mondays and Wednesdays. The following plot 
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-```
-## Warning: Removed 17 rows containing non-finite values (stat_smooth).
-```
-
-```
-## Warning: Removed 17 rows containing missing values (geom_point).
-```
-
-![](fitbit-analysis_files/figure-html/unnamed-chunk-111-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-113-1.png)<!-- -->
 
 It doesn't look like Mondays/Wednesdays have higher MVPA for either group (again, we see the non-engagers MVPA level remained more stable over time compared to engagers)
 
@@ -1725,15 +1662,8 @@ It doesn't look like Mondays/Wednesdays have higher MVPA for either group (again
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-```
-## Warning: Removed 17 rows containing non-finite values (stat_smooth).
-```
+![](fitbit-analysis_files/figure-html/unnamed-chunk-114-1.png)<!-- -->
 
-```
-## Warning: Removed 17 rows containing missing values (geom_point).
-```
-
-![](fitbit-analysis_files/figure-html/unnamed-chunk-112-1.png)<!-- -->
 #### Trend: Minutes of MVPA per day in the pre-intervention, intervention and post-intervention period
 It appears that daily MVPA "ramped-up" during the pre-intervention period and was sustained throughout the intervention period. 
 
@@ -1749,9 +1679,9 @@ It appears that daily MVPA "ramped-up" during the pre-intervention period and wa
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-113-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-115-1.png)<!-- -->
 
-We see a similar trend among the non-engagers; however, they appear to have ramped up to a slightly lower level of daily MVPA. This may suggest that at least part of the intervention effect is the fitbit itself, since even non-engagers saw slightly increases. 
+We see a similar trend among the non-engagers; however, they appear to have ramped up to a slightly lower level of daily MVPA. This may suggest that at least part of the intervention effect is the fitbit itself, since even non-engagers saw increases in MVPA (albeit lower), and these increases were observed before the start of the intervention period. 
 
 ```
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
@@ -1765,15 +1695,20 @@ We see a similar trend among the non-engagers; however, they appear to have ramp
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-114-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-116-1.png)<!-- -->
 
 #### Daily minutes of MVPA, faceted by week number
 Another way to visualize changes over time
-![](fitbit-analysis_files/figure-html/unnamed-chunk-115-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-117-1.png)<!-- -->
 
-#### Mean daily MVPA, by date
+#### Mean and median daily MVPA, by date
 Mean daily MVPA per day. Trend looks as described previously; daily MVPA ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
-![](fitbit-analysis_files/figure-html/unnamed-chunk-116-1.png)<!-- -->
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-118-1.png)<!-- -->
 
 Similar trends are observed among engagers and non-engagers; however, mean MVPA for non-engagers are more impacted by outlying values, since there were so few non-engagers (n=7). 
 
@@ -1781,27 +1716,32 @@ Similar trends are observed among engagers and non-engagers; however, mean MVPA 
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-117-1.png)<!-- -->
-
-#### Median daily MVPA 
+![](fitbit-analysis_files/figure-html/unnamed-chunk-119-1.png)<!-- -->
 
 Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of MVPA per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily MVPA exhibits a cyclical trend as well. 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-118-1.png)<!-- -->
 
-Daily MVPA looks noticeably lower for non-engagers vs. engagers when you use median instead of mean, but both groups do ramp up during pre-intervention period and decline slightly throughput the intervention period
+Median MVPA per day. Similar trend, through the downward trajectory appears more noticable
 
 ```
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-119-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-120-1.png)<!-- -->
+
+Daily median MVPA looks to ramp up to the same median daily MVPA by the end of the pre-intervention period, and start the intervention period at approximately the same level of daily MVPA. However, the non-engagers exhibit a more dramatic decrease throughput the intervention period, and end at a lower median MVPA at the end of the intervention period/into the post-period. 
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-121-1.png)<!-- -->
 
 #### Mean daily MVPA, by weekday and intervention period
 Trends in the pre- and post- periods must be interpreted with caution, as there is only 1 (or 2) dates contributing to the estimates for each weekday in these two periods. As such, both are ~ the trend over time (with the exception of Sunday in the post-period, which is based on two days of data)
-![](fitbit-analysis_files/figure-html/unnamed-chunk-120-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-122-1.png)<!-- -->
 
 There is a slightly different trend in mean daily MVPA among engagers and non-engagers (during the intervention period in particular). Plot is not working when I knit the file so I will exclude for now.
-
+![](fitbit-analysis_files/figure-html/unnamed-chunk-123-1.png)<!-- -->
 
 ## Models
 

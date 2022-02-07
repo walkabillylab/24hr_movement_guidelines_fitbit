@@ -11,50 +11,70 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(tidyr)
+library(foreign)
+library(readxl)
+library(ggplot2)
+library(gridExtra)
 knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
+getwd()
 ```
 
-## processing FitBit data 
+As per discussions last week, the plan is to: 
+(1) Prepare visualizations using the FitBit day-level intensity data
 
-### read in data from three time periods: 
+# 1. Read in Data
+
+## A. FitBit Data
+
+### Read in and consolidate data
+
+There are 18 csv files from each of four time periods. Read in all data from each of the four time periods (folder). 
 
 ```{r, results="hide"}
+
+# sample data
+  sample<-list.files("sample_data", pattern="*.csv", full.names=TRUE)
+  sample_csv<-lapply(sample, read.csv)
+  names(sample_csv)<-paste(gsub("sample_data/|.csv","",sample),".1",sep="")
+  list2env(sample_csv,envir=.GlobalEnv)
+  rm(sample,sample_csv)
 
 # nov 08 - nov 21
   nov08<-list.files("fitbit_data/nov08-nov21", pattern="*.csv", full.names=TRUE)
   nov08_csv<-lapply(nov08, read.csv)
-  names(nov08_csv)<-paste(gsub("fitbit_data/nov08-nov21/|.csv","",nov08),".1",sep="")
+  names(nov08_csv)<-paste(gsub("fitbit_data/nov08-nov21/|.csv","",nov08),".2",sep="")
   list2env(nov08_csv,envir=.GlobalEnv)
   rm(nov08,nov08_csv)
   
 # nov 22 - dec 05
   nov22<-list.files("fitbit_data/nov22-dec05", pattern="*.csv", full.names=TRUE)
   nov22_csv<-lapply(nov22, read.csv)
-  names(nov22_csv)<-paste(gsub("fitbit_data/nov22-dec05/|.csv","",nov22),".2",sep="")
+  names(nov22_csv)<-paste(gsub("fitbit_data/nov22-dec05/|.csv","",nov22),".3",sep="")
   list2env(nov22_csv,envir=.GlobalEnv)
   rm(nov22,nov22_csv)
 
 # dec 06 - dec 12
   dec06<-list.files("fitbit_data/dec06-dec12", pattern="*.csv", full.names=TRUE)
   dec06_csv<-lapply(dec06, read.csv)
-  names(dec06_csv)<-paste(gsub("fitbit_data/dec06-dec12/|.csv","",dec06),".3",sep="")
+  names(dec06_csv)<-paste(gsub("fitbit_data/dec06-dec12/|.csv","",dec06),".4",sep="")
   list2env(dec06_csv,envir=.GlobalEnv)
   rm(dec06,dec06_csv)
     
 ```
 
-### for each unique data type/dataset, consolidate data from three time periods
+Now consolidate data from four time periods. This will leave us with 18 unique dataframes. 
 
 ```{r}
 
 # generate list of unique datasets (there are 18)
-  files<-unique(gsub("\\.1|\\.2|\\.3","",ls()))
+  files<-unique(gsub("\\.1|\\.2|\\.3|\\.4","",ls()))
     
 # for each unique type of data, rbind data from the three periods together
   for(i in 1:length(files)) {
       
       pattern<-files[i]
       X<-mget(ls(pattern=pattern)) %>% bind_rows()
+      distinct(X)
       assign(gsub("_merged","",pattern),X)
       rm(list = ls()[grepl(pattern, ls())])
       rm(X)
@@ -67,60 +87,124 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
     
 ```
 
-#### leaves a total of 18 unique dataframes
+The 18 data types are as follows: 
 
 ```{r}
   ls()
 ```
 
-## minute-level data
+## B. Read in demographics and ID
 
-### explore minute-level data (note date/time variable is "ActivityMinute" in most but not all dataframes)
+```{r}
+  key <- foreign::read.spss("demo_key/Codes & Demographics.sav", to.data.frame=TRUE)
+  key$PAC_Email<-tolower(key$PAC_Email)
+  key<-key %>% rename(email=PAC_Email,
+                      Id=Fitbit_ID)
+  key$email<-gsub(" ","",key$email)
+  str(key$email)
+```
 
-#### minute-level step count
+## C. Read in engagement data
 
+```{r}
+  engage<-read_xlsx("engagement_data/17.01.22.24hmg_daily_ps_appengagements.xlsx")
+```
+
+# 2. Explore FitBit data
+
+## A. Intra-day data
+
+Intraday datasets including minute-level data: 
+  1. heart rate (heartrate_1min)
+  2. calories (minuteCaloriesNarrow)
+  3. intensity (minuteIntensitiesNarrow)
+  4. METs (minuteMETsNarrow)
+  5. steps (minuteStepsNarrow)
+  6. sleep stage (minuteSleep)
+
+Sleep stage information is also available measured at 30-second increments (30secondSleepStages). 
+
+### Explore intraday data: 
+
+#### i. Minute-level steps:  
+
+Number of steps per minute
 ```{r}
   str(minuteStepsNarrow) # steps per minute
 ```
 
-#### minute-level calories
+0 minutes have missing data for steps -- must be set to 0 during non-wear hours
+```{r}
+  length(minuteStepsNarrow[is.na(minuteStepsNarrow$Steps),]$Id)
+```
 
+Plot of step frequency
+```{r,echo=FALSE}
+  summary(minuteStepsNarrow$Steps)
+  #ggplot(minuteStepsNarrow,aes(Steps)) + geom_histogram() + theme_classic() + labs(y="Steps per minute")
+```
+
+
+#### ii. Minute-level calories
+
+Number of calories per minute. 
 ```{r}
   str(minuteCaloriesNarrow) # calories burned each minute
 ```
 
-#### minute-level activity intensity
+Very few records have 0 calories. Fitbit appears to apply a baseline number of calories per minute based on estimated basal metabolic rate. 
+```{r}
+  length(minuteCaloriesNarrow[minuteCaloriesNarrow$Calories==0,]$Id)
+```
 
+Plot of calorie frequency
+```{r,echo=FALSE}
+  summary(minuteCaloriesNarrow$Calories)
+  #ggplot(minuteCaloriesNarrow,aes(Calories)) + geom_histogram() + theme_classic() + labs(x="Calories per minute")
+```
+
+
+#### iii. minute-level activity intensity
+
+Minute-level intensity
 ```{r}
   str(minuteIntensitiesNarrow) # intensity of activity during each minute -- 0, 1, 2 and 3
 ```
 
-#### minute-level METs
+Plot of intensity frequency
+```{r,echo=FALSE}
+  summary(minuteIntensitiesNarrow$Intensity)
+  #ggplot(minuteIntensitiesNarrow,aes(Intensity)) + geom_histogram() + theme_classic() + labs(x="Minute-level intensity")
+```
 
+#### iv. minute-level METs
+
+Minute-level METs
 ```{r}
   str(minuteMETsNarrow) # MET value measued each minute
 ```
 
-#### minute-level heart rate (fewer observations than above)
+Plot of strange MET values
+```{r,echo=FALSE}
+  summary(minuteMETsNarrow$METs)
+  #ggplot(minuteMETsNarrow,aes(METs)) + geom_histogram() + theme_classic() + labs(x="minute-level METs")
+```
 
+
+#### v. minute-level heart rate (fewer observations than above)
+
+Minute-level heart rate
 ```{r}
   str(heartrate_1min) # heart rate measured each minute -- fewer measurements than above
 ```
 
-#### minute-level sleep stages 
-
-```{r}
-  str(minuteSleep) # sleep stage per minute?
+Strange MET values
+```{r,echo=FALSE}
+  summary(minuteMETsNarrow$METs)
+  #ggplot(minuteMETsNarrow,aes(METs)) + geom_histogram() + theme_classic() + labs(x="minute-level METs")
 ```
 
-#### 30 second sleep stages
-
-```{r}
-  str(`30secondSleepStages`) # sleep stages per 30 seconds? -- also fewer sleep observations
-```
-
-
-### process minute-level data
+### Merge minute-level activity data into one dataframe
 
 #### merge minute-level calories, intensities, METs and steps
 
@@ -140,7 +224,6 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
   rm(heartrate_1min)
 ```
 
-
 #### generate dateTime and date variables with common naming convention 
 
 ```{r}
@@ -149,28 +232,30 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
   minute<-minute %>% select(-ActivityMinute)
 ```
 
-### clean and explore minute-level sleep data
-
-#### issue: sleep observations can be measured on the half or full minute
+#### assess time period of data
 
 ```{r}
+  min(minute$date)
+  max(minute$date)
+```
 
-# sleep observations can be measured on the half or full minute (one or the other within a given bout of sleep)
+### Explore and clean intraday sleep data
+
+Sleep observations can be measured on the half or full minute (one or the other within a given bout of sleep)
+```{r}
   minuteSleep$test1<-ifelse(grepl(":30 ",minuteSleep$date),":30",":00")
   table(minuteSleep$test1)
-  
-  
-# all other minute-level data is measured on the full minute
+```
+
+However, all other minute-level data are measured on the full minute. 
+```{r}
   minute$test1<-ifelse(grepl(":30 ",minute$dateTime),":30",":00")
   table(minute$test1)
   minute<-minute %>% select(-test1)
-  
 ```
 
-#### solution: update the date all observations fall on the full minute (to align with other minute-level data)
-
+In order to merge with the other minute-level data, I will update the date of all observations to the full minute:
 ```{r}
-
 # since sleep is either measured at :00 or :30 within a bout of sleep,
 # we can update all records to ":00 " without introducing any duplicates
 # this is necessary to merge sleep records with the other minute-level data (always measured on full minute)
@@ -179,76 +264,81 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
   minuteSleep$date<-as.Date(minuteSleep$dateTime)
   minuteSleep$test2<-ifelse(grepl(":30 ",minuteSleep$date),":30",":00")
   table(minuteSleep$test2)
-  
 ```
 
-
-#### filter minute-level sleep data to to same time range as other data types
-
+Check the date range of the sleep data
 ```{r}
-  minuteSleep<-minuteSleep[minuteSleep$date>"2021-11-08" & minuteSleep$date<"2021-12-13",]
+  summary(minuteSleep$date)
 ```
 
+Filter to the same date range as the other minute-level data. 
+```{r}
+  minuteSleep<-minuteSleep[minuteSleep$date<"2021-12-13",]
+```
 
-#### issue: there are duplicate sleep records for most participants
-
+Another issue: There are many duplicate sleep records (multiple rows corresponding to the same participant-minute):
 ```{r}
   test<-minuteSleep %>% select(Id,dateTime) %>% group_by(Id,dateTime) %>% mutate(length=length(Id))
   table(test$length) # this is unrelated to updating the date/time from :30 to :00 above
-  length(unique(test[test$length==2,]$Id)) # almost every participant has duplicate records for sleep
+  # length(unique(test[test$length==2,]$Id)) 
+    # almost every participant has duplicate records for sleep
 ```
 
-#### note: all but 6 observations (3 minutes for 1 participants) are exact duplicates (same Id, date AND value)
-
-```{r}
-
+Importantly, all but 6 observations (3 minutes for 1 participants) are exact duplicates (same Id, date AND value)
+```{r,warnings=FALSE}
   test3<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
                                                        mutate(length=length(Id)) %>%
                                                        mutate(unique=length(unique(value)))
-
 # however, only 6 records (3 minutes for 1 participant) have more than one unique "value" within the same minute
 # the rest of the duplicate rows are exact duplicates (same "value" (sleep stage) across both observations)
   table(test3[test3$length==2,]$unique) 
   rm(test,test3)
-
 ```
 
-
-#### solution: remove duplicate records within the minute-level sleep data
-
+I will remove exact duplicates (across all columns in the data frame):
 ```{r}
-
 # create de-duplicated version of the minuteSleep dataframe
 # need to decide how to handle the 3 minutes with two unique "values"
   minuteSleep<-minuteSleep %>% select(-test1,-test2)
   minuteSleep<-distinct(minuteSleep) 
+```
+
+There are still over 800 duplicate records (same participant-minute):
+```{r}
   test4<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
                                                        mutate(length=length(Id)) %>%
                                                        mutate(unique=length(unique(value)))
   table(test4$length)
+```
 
-# 1 participant has 800+ rows that are duplicates but the logId differs
+It appears as though all 800+ duplicate rows are within the same participant -- the time and value are the same, but the logId differs between observations: 
+```{r}
   minuteSleep<-distinct(minuteSleep, across(-"logId"),.keep_all = TRUE) 
   test4<-minuteSleep %>% select(Id,dateTime,value) %>% group_by(Id,dateTime) %>% 
                                                        mutate(length=length(Id)) %>%
                                                        mutate(unique=length(unique(value)))
+  length(unique(test4[test4$length==2,]$Id))
   table(test4$length)
+  duplicates<-test4[test4$length==2,]
   rm(test4)
-  
-# decide what to do with duplicate records with differing "values"
-  
+```
+
+The remaining 6 duplicates represent 3 minutes from one participant where the value also differs between the two observations. I will recode value to NA and then de-duplicate again: 
+```{r}
+  minuteSleep$value<-ifelse(minuteSleep$Id %in% duplicates$Id & 
+                            minuteSleep$dateTime %in% duplicates$dateTime,NA,minuteSleep$value)
+  minuteSleep<-distinct(minuteSleep,across(-"logId"),.keep_all = TRUE) 
 ```
 
 
-### merge minute-level sleep with other minute-level data
+### Merge minute-level sleep and activity data
 
 ```{r}
   minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id","date"))
   rm(minuteSleep)
 ```
 
-#### rename columns in minute-level data (so it is clear which columns are minute- vs. day-level)
-
+Rename columns in minute-level data (so it is clear which columns are minute- vs. day-level)
 ```{r}
   minute<-minute %>% rename(minuteCalories=Calories,
                             minuteHeartRate=Value,
@@ -260,38 +350,53 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
                      relocate(dateTime,.after=Id) %>%
                      relocate(date,.after=dateTime) %>%
                      arrange(Id,dateTime)
+  # minute$minuteAwake<-ifelse(is.na(minute$minuteSleepStage),1,0)
+  # minute$minuteWearing<-ifelse(is.na(minute$minuteHeartRate),0,1)
 ```
 
+#### reformat minute-level intensity 
 
-## day-level data
+```{r}
+  minute$minuteIntensity1<-minute$minuteIntensity
+  minute$minuteIntensity<-ifelse(minute$minuteIntensity==0,"minuteSedentary",
+                               ifelse(minute$minuteIntensity==1,"minuteLightlyActive",
+                                      ifelse(minute$minuteIntensity==2,"minuteFairlyActive",
+                                             ifelse(minute$minuteIntensity==3,"minuteVeryActive",NA))))
+  minute$minuteIntensity<-ifelse(is.na(minute$minuteHeartRate),"non-wear",minute$minuteIntensity)
+  summary(as.factor(minute$minuteIntensity))
+  minute$minuteIntensityValue<-1
+  minute<-pivot_wider(minute,names_from="minuteIntensity",values_from="minuteIntensityValue")
+```
 
-### explore day-level data
+## B. Day-level data
 
-#### day-level calories
+### Explore day-level data
+
+#### i. Day-level calories
 
 ```{r}
   str(dailyCalories)
 ```
 
-#### day-level intensities
+#### ii. Day-level intensities
 
 ```{r}
   str(dailyIntensities)
 ```
 
-#### day-level steps
+#### iii. Day-level steps
 
 ```{r}
   str(dailySteps)
 ```
 
-#### day-level sleep 
+#### iv. Day-level sleep 
 
 ```{r}
   str(sleepDay)
 ```
 
-#### day-level sleep stages
+#### v. Day-level sleep stages
 
 ```{r}
   str(sleepStagesDay) # same variables as above (Id, SleepDay, TotalSleepRecords, TotalMinutesAsleep, TotalTimeInBed) plus total minutes awake and spent in each sleep stage (light/deep/REM)
@@ -299,7 +404,7 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
   rm(sleepDay)
 ```
 
-### merge day-level activity data
+### Merge day-level activity data
 
 ```{r}
   daily<-dailyCalories %>% full_join(dailyIntensities, by = c("ActivityDay","Id")) %>%
@@ -313,14 +418,18 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
   str(daily$ActivityDay)
   daily$date<-as.Date(daily$ActivityDay,"%m/%d/%Y")
   lubridate::tz(daily$date)
+  min(daily$date)
+  max(daily$date)
 ```
 
-### merge day-level activity data and day-level sleep data 
+### Merge day-level activity data and day-level sleep data 
 
 #### generate date in the day-level sleep data 
 
 ```{r}
   sleepStagesDay$date<-as.Date(lubridate::mdy_hms(sleepStagesDay$SleepDay))
+  min(sleepStagesDay$date)
+  max(sleepStagesDay$date)
 ```
 
 #### merge day-level activity data and day-level sleep data
@@ -339,11 +448,20 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
   names(daily)
 ```
 
+#### create intervention flag in day-level data
+
+```{r}
+  daily$intervention<-ifelse(daily$date < "2021-10-25","pre",
+                      ifelse(daily$date >= "2021-12-05","post","intervention"))
+  daily$intervention<-factor(daily$intervention,levels=c("pre","intervention","post"))
+  table(daily$intervention)
+```
+
+
 ### merge minute- and day-level dataframes
 
 ```{r}
   data<-merge(daily,minute,by=c("Id","date"))
-  rm(daily,minute)
 ```
 
 ## add battery (and syncEvents) data
@@ -394,7 +512,7 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
   rm(battery)
 ```
 
-## explore remaining dataframes
+### C. Explore remaining dataframes
 
 ### sleepLogInfo
 
@@ -494,7 +612,7 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 #### select and rename columns 
 
 ```{r}
-  names(activitylogs)
+  activitylogs$date<-as.Date(activitylogs$dateTime)
   activitylogs<-activitylogs %>% select(-Date,-StartTime,-ActivityType) %>%
                                  rename(activity_duration=Duration,
                                         activity=Activity,
@@ -511,7 +629,25 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
                                         activity_outOfRangeMins=OutOfRangeHeartRateMinutes,
                                         activity_fatBurnMins=FatBurnHeartRateMinutes,
                                         activity_cardioMins=CardioHeartRateMinutes,
-                                        activity_peakMins=PeakHeartRateMinutes)
+                                        activity_peakMins=PeakHeartRateMinutes) %>%
+                                  relocate(date,.before=activity_duration) %>%
+                                  relocate(dateTime,.after=date)
+```
+
+
+### generate count of workouts per day, unique types of workouts per day, total duration of workouts
+```{r}
+  names(activitylogs)
+  activitylogs$activity_duration<-activitylogs$activity_sedentaryMins+
+                                  activitylogs$activity_lightlyActiveMins+
+                                  activitylogs$activity_fairlyActiveMins+
+                                  activitylogs$activity_veryActiveMins
+  activitylogs<-activitylogs %>% group_by(Id,date) %>% mutate(day_activity_count=length(Id),
+                                                              day_activity_duration=sum(activity_duration),
+                                                              day_activity_unique=length(unique(activity))) %>%
+                                                       relocate(day_activity_count,.after=dateTime) %>%
+                                                       relocate(day_activity_duration,.after=day_activity_count) %>%
+                                                       relocate(day_activity_unique,.after=day_activity_duration) 
 ```
 
 
@@ -519,8 +655,977 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 
 ```{r}
   names(activitylogs)
-  data<-merge(data,activitylogs,by=c("Id","dateTime"),all.x=TRUE)
+  data<-merge(data,activitylogs[,!(colnames(activitylogs) %in% c("date"))],by=c("Id","dateTime"),all.x=TRUE)
   rm(activitylogs)
 ```
 
+## D. Compare minute-level and day-level data
+
+Aggregate at the level of the day
+```{r}
+  names(data)
+  assess<-data %>% group_by(Id,date) %>% summarise(Id=identity(Id),
+                                                   date=identity(date),
+                                                   TotalCalories=identity(TotalCalories),
+                                                   minuteCalories=as.numeric(format(trunc(sum(minuteCalories),0),nsmall=0)),
+                                                   nonWearMinutes=sum(`non-wear`,na.rm=TRUE),
+                                                   SedentaryMinutes=identity(SedentaryMinutes),
+                                                   minuteSedentary=sum(minuteSedentary,na.rm=TRUE),
+                                                   LightlyActiveMinutes=identity(LightlyActiveMinutes),
+                                                   minuteLightlyActive=sum(minuteLightlyActive,na.rm=TRUE),
+                                                   FairlyActiveMinutes=identity(FairlyActiveMinutes),
+                                                   minuteFairlyActive=sum(minuteFairlyActive,na.rm=TRUE),
+                                                   VeryActiveMinutes=identity(VeryActiveMinutes),
+                                                   minuteVeryActive=sum(minuteVeryActive,na.rm=TRUE),
+                                                   TotalSleps=identity(StepTotal),
+                                                   minuteSteps=sum(minuteSteps),
+                                                   TotalTimeInBed=identity(TotalTimeInBed))
+```
+
+How many minutes of data are accounted for accross the various day-level intensity categories?
+Calculate as the sum of SedentaryMinutes, LightlyActiveMinutes, FairlyActiveMinutes, VeryActivitMinutes, TotalTimeInBed, nonWearMinutes
+```{r}
+  assess$sum_minutes<-assess$SedentaryMinutes+
+                      assess$LightlyActiveMinutes+
+                      assess$FairlyActiveMinutes+
+                      assess$VeryActiveMinutes+
+                      assess$TotalTimeInBed+assess$nonWearMinutes
+  assess<-distinct(assess)
+  summary(assess$sum_minutes)
+```
+
+Create a dataframe that calculates the difference between totals from the day-level data vs. totals aggregated up from the minute-level data
+```{r}
+# compare
+  compare<-assess %>% mutate(diffCalories=TotalCalories-minuteCalories,
+                             diffSed=SedentaryMinutes-minuteSedentary,
+                             diffLight=LightlyActiveMinutes-minuteLightlyActive,
+                             diffFairly=FairlyActiveMinutes-minuteFairlyActive,
+                             diffVery=VeryActiveMinutes-minuteVeryActive,
+                             diffSteps=TotalSleps-minuteSteps)
+```
+
+Difference in calories: 
+```{r}
+  compare<-distinct(compare)
+  summary(compare$diffCalories) 
+      # agree for ~2300 participant-days; 
+      # disagrees for just over 100 participant-days, most by a relatively small amount, 12 by more than 100 calories 
+```
+
+Difference in minutes of light activity: 
+```{r}
+  # diffSed: issues with day-level measure of sedentary time -- appears to take another category into account?
+  summary(compare$diffLight) # disagrees for 4 people-days, by no more than 12 minutes
+```
+
+Difference in minutes of fairly active: 
+```{r}
+  # diffSed: issues with day-level measure of sedentary time -- appears to take another category into account?
+  summary(compare$diffFairly) # disagrees for 3 people-days, by no more than 7 minutes
+```
+
+Difference in minutes of very active: 
+```{r}
+  summary(compare$diffVery) # disagrees for 2 people-days, by no more than 5 minutes
+```
+
+Difference in steps: 
+```{r}
+  summary(compare$diffSteps) # disagrees for ~150 people-days, 12 people/days differ by more than 100 steps (9 by >1000 steps)
+```
+
+```{r}
+  rm(assess,compare,data)
+```
+
+
+# 3. Add Demographic and Daily Engagement Data
+
+## Merge Demographic and Engagement Data using email
+
+Check for IDs that are in engagement and not key
+```{r}
+# check for IDs that are in engagement and not key
+  unique(engage[!(engage$email %in% key$email),]$email)
+```
+
+Check for IDs that are in key and not engagement
+```{r}
+# check for IDs that are in the key but not the engagement data
+  unique(key[!(key$email %in% engage$email),]$email)
+```
+
+Note: There are three participants missing the letter location identifier in their engagement data email address (missing an A specifically). The email address in the key dataframe contains the A, so the records did not merge. All three participants look to be from Queens, and should have an A in their email. 
+
+I will manually correct these email addresses and then merge the data again
+```{r}
+  engage$email<-ifelse(engage$email=="pacappstudy+08@gmail.com","pacappstudy+a08@gmail.com",
+                       ifelse(engage$email=="pacappstudy+03@gmail.com","pacappstudy+a03@gmail.com",
+                              ifelse(engage$email=="pacappstudy+28@gmail.com","pacappstudy+a28@gmail.com",engage$email)))
+```
+
+Try merging again with corrected email addresses
+```{r}
+  engage<-merge(engage,key,by=c("email"))
+  rm(key)
+```
+
+Note that all records from the engagement dataset have been retained after this correction. 
+
+Reformat date so it aligns with the daily fitbit data (as.Date vs. as.POSIXct)
+```{r}
+  engage$date<-as.Date(engage$date)
+```
+
+Trim whitespace from Id columns in engage data
+```{r}
+  engage$Id<-gsub(" ","",engage$Id)
+```
+
+There are some participants who have a row indicating "no_engagement" (during the study) but one or more records indicating that they had engaged with a specific article on a specific date: 
+```{r}
+  any_engage<-engage[,colnames(engage) %in% c("Id","any_engagement")]
+  any_engage<-distinct(any_engage)
+  any_engage<-any_engage %>% group_by(Id) %>% mutate(n_rows=length(Id))
+  length(unique(engage[engage$Id %in% any_engage[any_engage$n_rows==2,]$Id,]$Id))
+```
+
+Need to check with Geri to see how this variable was calculated. For now, I will generate a new version (ever_engage) that = YES if there is at least one row where date and title are not missing, NO otherwise
+```{r}
+  engage<-engage %>% group_by(Id) %>% mutate(ever_engage=max(click))
+  table(engage$any_engagement,engage$ever_engage)
+  any_engage<-engage[,colnames(engage) %in% c("Id","ever_engage")]
+  any_engage<-distinct(any_engage)
+```
+
+Remove rows where ever_engage = 1 but any_engagement = no_engagement
+```{r}
+  engage<-engage[!(engage$any_engagement=="no_engagement" & engage$ever_engage==1),]
+```
+
+## Merge daily fitbit data with engagement data
+
+Split time-varying and non-time-varying factors
+```{r}
+  names(engage)
+  engage_participant<-engage %>% select(email,Id,ever_engage,Age,Year_HS_Graduation,Gender,Ethnicity,University,Undergrad_Program,
+                                        Current_Living_Situation,PACapp_Use,Tracking_Movement_Behaviour,
+                                        Questionnaire_ID_1,Questionnaire_ID_2)
+  engage_time_varying<-engage %>%
+                       select(Id,date,title,intervention_content,featured_content,pubdate,weekofpublish,type,click,engage)
+```
+
+Merge daily data and variables that are not time/date-dependent
+```{r}
+  daily<-distinct(merge(daily[daily$Id!="Study Coordinator QU",],
+                        engage_participant,by=c("Id")))
+```
+
+Merge time-varying engagement variables
+```{r}
+  daily<-distinct(merge(daily,
+                        engage_time_varying,by=c("Id","date"),all.x=TRUE))
+```
+
+## Exploratory: Compare FitBit intensity categorization with alternate approaches. 
+
+### Merge age from enagement data with minute-level heart rate data to calcualte various intensity metrics
+ 
+Merge minute-level HR with ages
+```{r}
+  minHR<-merge(minute[minute$Id!="Study Coordinator QU",
+                               colnames(minute) %in%
+                               c("Id","dateTime","date","minuteHeartRate","minuteIntensity1","minuteSteps")],
+               engage_participant[,colnames(engage_participant) %in% c("Id","Age")],by=c("Id"))
+  minHR<-distinct(minHR)
+```
+
+### Generate alternative intensity categories using demographics
+
+#### minuteIntensity1: fitbit categories
+
+This is a four-level variable. I am assuming that 0 = sedentary, 1 = lightly active, 2 = fairly active, 3 = very active. I am also assuming that fairly active is approximately moderate intensity, very active is approximately vigorous intensity. 
+```{r}
+  minHR$minuteIntensity1<-ifelse(minHR$minuteIntensity %in% c("2","3"),"MVPA","non-MVPA")
+  table(minHR$minuteIntensity1)
+```
+
+#### minuteIntensity2: 100 steps/minute
+
+based on research from Catrine Tudor-Locke, 100 steps/minute and 130 steps/minute can be used as thresholds for moderate and vigorous physical activity (https://ijbnpa.biomedcentral.com/articles/10.1186/s12966-019-0769-6) 
+```{r}
+  minHR$minuteIntensity2<-ifelse(minHR$minuteSteps>100,"MVPA","non-MVPA")
+  table(minHR$minuteIntensity2) # fewer MVPA minutes using this vs. the fitbit categories
+```
+
+#### minuteIntensity3: Karvonen formula
+
+Karvonen formula estimates maximum heart rate by subtracting age from 220. Since all participants are 19-20, I'll assume 200 as the max heart rate for all participants. This can be updated once demographic data is available for all participants. Moderate intensity activity is 40-60% of max heart rate, vigorous is >60% max heart rate (https://bcmj.org/articles/science-exercise-prescription-martti-karvonen-and-his-contributions)
+```{r}
+# flag a minute as MVPA if minuteHeartRate 80 or greater (40% of 200)
+# heart rate reserve = max - resting (how to determine resting heart rate?) (mean/median of values less than 80 as resting heart rate)
+# resting + (max-resting)*0.4
+# 60 + (140)*0.4 = 116
+  estRHR<-minHR[!is.na(minHR$minuteHeartRate) & minHR$minuteHeartRate<80,]
+  estRHR<-estRHR %>% select(Id,minuteHeartRate)
+  estRHR<-estRHR %>% group_by(Id) %>% mutate(meanRHR=format(round(mean(minuteHeartRate),0),nsmall=0),
+                                             medianRHR=median(minuteHeartRate)) %>% 
+                                      select(Id,meanRHR,medianRHR)
+  estRHR<-distinct(estRHR)
+  minHR<-merge(minHR,estRHR,by="Id")
+  minHR$thresholdHR<-(minHR$medianRHR+(((220-minHR$Age)-minHR$medianRHR)*0.4))
+  minHR$minuteIntensity3<-ifelse(minHR$minuteHeartRate >= minHR$thresholdHR,"MVPA","non-MVPA")
+  table(minHR$minuteIntensity3) # fewer using this method
+```
+
+#### comparison of various intensity categorizations
+
+```{r}
+# fitbit vs. 100 steps/min
+  test<-table(minHR$minuteIntensity1,minHR$minuteIntensity2)
+  chisq.test(test)
+```
+
+There is not a lot of agreement here... more minutes categorized as 2/3 intensity were flagged as non-MVPA than MVPA. 
+```{r}
+# fitbit vs. hr one steps/min
+  test2<-table(minHR$minuteIntensity1,minHR$minuteIntensity3)
+  chisq.test(test2)
+```
+
+
+# 4. Analysis
+
+To do: 
+(1) Plot daily MVPA, faceted by week - DONE
+(2) Plot the distribution of engagement across person-days - DONE
+(3) Create table of average weekly PA
+(4) What is the overall effect of the intervention day (regardless of interaction/engagement/clicks) and how does that change over the course of the pre/during/post -- avg. effect of intervention (intention to treat) -- linear regression - intervention variable (monday/wednesday) -- interaction between pre/during/post and monday/wednesday
+Effect of engagement on MVPA -- On average, when you enagge vs. don't enagge with the content, what happens with their activity (days when you engaged vs. days you didn't)
+  Any engagement vs. never engaged -- time series with smooth to work -- lm or smooth etc. 
+  Engagement by day -- these people engaged on this day vs. this 
+  Clicks by day 
+(5) ever engaged vs. never engaged, by engaged (within the week/day) and by clicked (within the week/day) 
+(6) model building - if we were going to model this, what would the model look like? from epi/naturral experiment perspective 
+intervention content vs. non-intervention content (look at clicks and engagement as is, revisit this after speaking with Jenn etc.)
+
+Recode ever_engage for figures
+```{r}
+  daily$ever_engage<-ifelse(daily$ever_engage==1,"Clicked or engaged at least once","Never engaged or clicked")
+```
+
+
+Add week start date and day of week for plotting and analysis
+```{r}
+  daily$weekNum<-format(daily$date,"%W")
+  daily<-daily %>% group_by(weekNum) %>% mutate(weekStart=min(date))
+  daily$weekday<-factor(weekdays(daily$date),
+                        levels=c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"))
+  daily$mon_wed<-ifelse(daily$weekday %in% c("Monday","Wednesday"),"yes","no")
+```
+
+Calculate daily minutes of MVPA 
+```{r}
+  daily$totalMVPA<-daily$FairlyActiveMinutes+daily$VeryActiveMinutes
+```
+
+Generate count of engagements per day
+```{r}
+  daily<-daily %>% group_by(Id,date) %>% mutate(countEngage=sum(engage),
+                                                countClick=sum(click))
+  daily$countClick<-ifelse(is.na(daily$countClick),0,daily$countClick)
+  daily$countEngage<-ifelse(is.na(daily$countEngage),0,daily$countEngage)
+```
+
+Calculate average daily clicks and engagements per participant, and per participant and period (pre, intervention, post)
+```{r}
+  daily<-daily %>% group_by(Id) %>% mutate(meanDailyClick=mean(countClick),
+                                           meanDailyEngage=mean(countEngage)) %>%
+                   group_by(Id,intervention) %>% mutate(meanDailyClickPeriod=mean(countClick),
+                                                        meanDailyEngagePeriod=mean(countEngage))
+```
+
+Create person-level dataset for plots. Currently, the "daily" dataframe has one row per person-day-article, so if someone engages with two different articles, they have two rows in the dataframe. I want a maximum of one row per person per day for data exploration. 
+```{r}
+  dailyForPlots<-daily[!is.na(daily$totalMVPA),] %>% select(-title,-intervention_content,-featured_content,-pubdate,-weekofpublish,
+                                                            -type,-click,-engage)
+  dailyForPlots<-distinct(dailyForPlots)
+```
+
+## Engagement and clicks:
+
+### Total clicks and engagement per day (summed across all participants)
+
+#### Total engagements per day, by date
+Total clicks and engagements, when summed across participants, appear somewhat cyclical, though the value and the amplitude both appear to diminish over time.
+```{r,echo=FALSE}
+  totalEngageClickDay<-dailyForPlots %>% group_by(date) %>% mutate(sumClicks=sum(countClick),
+                                                              sumEngage=sum(countEngage)) %>% distinct()
+  
+  totalEngageDay<-ggplot(totalEngageClickDay,aes(x=date,y=sumEngage)) + 
+                      geom_point(color="#619CFF") + 
+                      theme_classic() +
+                      geom_smooth(color="#619CFF") +
+                      labs(x="Date",
+                           y="Total daily engagements",
+                           title="Total daily engagement") +
+                      theme(axis.title.x = element_text(face="bold"),
+                            axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                            axis.title.y = element_text(face="bold"),
+                            plot.title = element_text(face="bold",
+                                                      hjust=0.5))
+  totalClickDay<-ggplot(totalEngageClickDay,aes(x=date,y=sumClicks)) + 
+                      geom_point(color="#FFC833") + 
+                      theme_classic() +
+                      geom_smooth(color="#FFC833") +
+                      labs(x="Date",
+                           y="Total daily clicks",
+                           title="Total daily clicks") +
+                      theme(axis.title.x = element_text(face="bold"),
+                            axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                            axis.title.y = element_text(face="bold"),
+                            plot.title = element_text(face="bold",
+                                                      hjust=0.5))
+  grid.arrange(totalClickDay,totalEngageDay,ncol=1)
+```
+<!-- #### Mean total engagements and clicks per weekday and intervention period -->
+<!-- Mean total clicks and engagement, calculated as the sum of clicks/engagement for a given weekday in each of the pre-intervention, intervention and post-intervention periods for all participants, divided by the number of dates reflected in the calculation. This is to make the three periods comparable, even though the pre- and post- periods are only ~7 days each.  -->
+```{r,echo=FALSE,include=FALSE}
+  totalEngageClickWeekdayInt<-dailyForPlots %>% group_by(weekday,intervention) %>% mutate(n_dates=length(unique(date)),
+                                                                                          sumClick=sum(countClick)/n_dates,
+                                                                                          sumEngage=sum(countEngage)/n_dates) %>% 
+                                                select(weekday,intervention,sumClick,sumEngage) %>% distinct()
+  engageTotalWeekdayIntPlot<-ggplot(totalEngageClickWeekdayInt,aes(x=weekday,y=sumEngage,group=intervention)) + 
+                            facet_wrap(~intervention,ncol=3) +
+                            geom_jitter(colour="#619CFF") + 
+                            geom_smooth(colour="#619CFF",se=FALSE) + 
+                            theme_classic() +
+                            labs(x="Weekday",
+                                 y="Total engagement",
+                                 title="Total engagement per weekday\nbefore during and after\nthe intervention period") +
+                            theme(axis.title.x = element_text(face="bold"),
+                                  axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                  axis.title.y = element_text(face="bold"),
+                                  plot.title = element_text(face="bold",
+                                                            hjust=0.5))
+  clickTotalWeekdayIntPlot<-ggplot(totalEngageClickWeekdayInt,aes(x=weekday,y=sumClick,group=intervention)) + 
+                           facet_wrap(~intervention,ncol=3) +
+                           geom_jitter(colour="#FFC833") + 
+                           theme_classic() +
+                           geom_smooth(colour="#FFC833",se=FALSE) + 
+                           labs(x="Weekday",
+                                y="Total clicks",
+                                title="Total clicks per weekday\nbefore during and after\nthe intervention period") +
+                           theme(axis.title.x = element_text(face="bold"),
+                                 axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                 axis.title.y = element_text(face="bold"),
+                                 plot.title = element_text(face="bold",
+                                                            hjust=0.5))
+  grid.arrange(clickTotalWeekdayIntPlot,engageTotalWeekdayIntPlot,ncol=2)
+```
+### Clicks and engagement per participant-day
+
+#### Distribution of clicks and engagement per participant and day
+The vast majority of participant-days had 0 clicks and 0 engagement. 
+```{r,echo=FALSE}
+  countEngagePlot<-ggplot(dailyForPlots,aes(x=countEngage)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Number of engagements per day",
+                               y="Frequency",
+                               title="Distribution:\nEngagements per participant-day") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  countClickPlot<-ggplot(dailyForPlots,aes(x=countClick)) + 
+                         geom_bar(fill="#FFC833") + 
+                         theme_classic() +
+                         labs(x="Number of clicks per day",
+                               y="Frequency",
+                               title="Distribution:\nClicks per participant-day") +
+                         theme(axis.title.x = element_text(face="bold"),
+                               axis.title.y = element_text(face="bold"),
+                               plot.title = element_text(face="bold",
+                                                         hjust=0.5))
+  grid.arrange(countClickPlot,countEngagePlot,ncol=2)
+```
+
+#### Number of clicks and engagement per participant and day over time
+It is hard to make out any interesting patterns because there are so many participant-days with 0 engagement and/or clicks (as observed above)
+```{r,echo=FALSE}
+  engageDay<-ggplot(dailyForPlots,aes(x=date,y=countEngage)) + 
+                    geom_jitter(alpha=0.25,color="#619CFF") +
+                    theme_classic() +
+                    labs(x="Date",
+                         y="Number of daily engagements",
+                         title="Number of engagements\nper participant and day") +
+                    theme(axis.title.x = element_text(face="bold"),
+                          axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                          axis.title.y = element_text(face="bold"),
+                          plot.title = element_text(face="bold",
+                                                    hjust=0.5))
+  clickDay<-ggplot(dailyForPlots,aes(x=date,y=countClick)) + 
+                    geom_jitter(alpha=0.25,color="#FFC833") + 
+                    theme_classic() +
+                    labs(x="Date",
+                         y="Number of daily clicks",
+                         title="Number of clicks\nper participant and day") +
+                    theme(axis.title.x = element_text(face="bold"),
+                          axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                          axis.title.y = element_text(face="bold"),
+                          plot.title = element_text(face="bold",
+                                                    hjust=0.5))
+    grid.arrange(clickDay,engageDay,ncol=2)
+```
+
+#### Mean daily clicks and engagement over time
+It is easier to see trends in daily clicks and engagement over time using mean clicks and engagement per day (calculated as the sum of all clicks and engagements on a given date divided by the number of participants that contributed data on that date, respectively). Please note, we cannot use median, as the median clicks and median engagement is 0 everyday. 
+```{r,echo=FALSE}
+  meanEngageClickDay<-dailyForPlots %>% group_by(date) %>% 
+                                            mutate(meanDayClick=mean(countClick),
+                                                   meanDayEngage=mean(countEngage)) %>%
+                                            select(date,meanDayClick,meanDayEngage,intervention) %>% distinct()
+# confirm the calculation  above -- sum the total engagements or clicks per day (across all participants) and then divide by the number of participants 
+  # engagement 
+    sum(dailyForPlots[dailyForPlots$date=="2021-10-18",]$countEngage)/length(dailyForPlots[dailyForPlots$date=="2021-10-18",]$Id) == 
+    meanEngageClickDay[meanEngageClickDay$date=="2021-10-18",]$meanDayEngage
+  # clicks
+    sum(dailyForPlots[dailyForPlots$date=="2021-10-18",]$countClick)/length(dailyForPlots[dailyForPlots$date=="2021-10-18",]$Id) == 
+    meanEngageClickDay[meanEngageClickDay$date=="2021-10-18",]$meanDayClick
+                      
+  meanEngageDay<-ggplot(meanEngageClickDay,aes(x=date,y=meanDayEngage)) + 
+                        geom_point(color="#619CFF") + 
+                        theme_classic() +
+                        geom_smooth(color="#619CFF") +
+                        labs(x="Date",
+                             y="Mean daily engagement",
+                             title="Mean daily engagement") +
+                        theme(axis.title.x = element_text(face="bold"),
+                              axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",
+                                                        hjust=0.5))
+
+  meanClickDay<-ggplot(meanEngageClickDay,aes(x=date,y=meanDayClick)) + 
+                        geom_point(color="#FFC833") + 
+                        theme_classic() +
+                        geom_smooth(color="#FFC833") +
+                        labs(x="Date",
+                             y="Mean daily clicks",
+                             title="Mean daily clicks") +
+                        theme(axis.title.x = element_text(face="bold"),
+                              axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",
+                                                        hjust=0.5))
+  grid.arrange(meanClickDay,meanEngageDay,ncol=2)
+```
+
+<!-- #### Clicks and engagement over time, by intervention period -- Excluding for now -->
+```{r,echo=FALSE,include=FALSE}
+  engageDayPeriod<-ggplot(dailyForPlots,aes(x=date,y=countEngage,color=intervention,group=intervention)) + 
+                    geom_jitter(alpha=0.25) + 
+                    scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                    theme_classic() +
+                    labs(x="Date",
+                         y="Number of daily engagements",
+                         title="Number of engagements per participant per day") +
+                    theme(axis.title.x = element_text(face="bold"),
+                          axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                          axis.title.y = element_text(face="bold"),
+                          plot.title = element_text(face="bold",
+                                                    hjust=0.5))
+  clickDayPeriod<-ggplot(dailyForPlots,aes(x=date,y=countClick,color=intervention,group=intervention)) + 
+                    geom_jitter(alpha=0.25) + 
+                    scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                    theme_classic() +
+                    labs(x="Date",
+                         y="Number of daily clicks",
+                         title="Number of clicks per participant per day") +
+                    theme(axis.title.x = element_text(face="bold"),
+                          axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                          axis.title.y = element_text(face="bold"),
+                          plot.title = element_text(face="bold",
+                                                    hjust=0.5))
+    grid.arrange(clickDayPeriod,engageDayPeriod,ncol=1)
+```
+
+#### Clicks and engagement by weekday in the pre, intervention and post intervention period
+I am interested in assessing if daily clicks and/or engagement (at the participant level) varies by day of the week. It looks like clicks and engagement are higher during the work week, particularly during the intervention period, but it is difficult to tell because there are also more Mondays, Tuesday, etc. during this period (since it is much longer). 
+```{r,echo=FALSE}
+  engageWeekdayPlot<-ggplot(dailyForPlots,aes(x=weekday,y=countEngage)) + 
+                            facet_wrap(~intervention,ncol=3) +
+                            geom_jitter(colour="#619CFF",alpha=0.25) + 
+                            theme_classic() +
+                            labs(x="Weekday",
+                                 y="Number of engagements",
+                                 title="Daily engagements per participant,\nby weekday") +
+                            theme(axis.title.x = element_text(face="bold"),
+                                  axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                  axis.title.y = element_text(face="bold"),
+                                  plot.title = element_text(face="bold",
+                                                            hjust=0.5))
+  clickWeekdayPlot<-ggplot(dailyForPlots,aes(x=weekday,y=countClick)) + 
+                           facet_wrap(~intervention,ncol=3) +
+                           geom_jitter(colour="#FFC833",alpha=0.25) + 
+                           theme_classic() +
+                           labs(x="Weekday",
+                                y="Number of clicks",
+                                 title="Daily clicks per participant,\nby weekday") +
+                           theme(axis.title.x = element_text(face="bold"),
+                                 axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                 axis.title.y = element_text(face="bold"),
+                                 plot.title = element_text(face="bold",
+                                                            hjust=0.5))
+  grid.arrange(clickWeekdayPlot,engageWeekdayPlot,ncol=2)
+```
+
+#### Mean clicks and engagement, by weekday and period
+Mean clicks and engagement is calculated by taking the mean daily click and/or engagement count across all participants, separately for each weekday in each of the pre-intervention, intervention and post-intervention periods. It appears that the mean clicks and mean engagement by day of the week differ between the pre-intervention, intervention and post-intervention periods. 
+```{r,echo=FALSE}
+  meanEngage<-dailyForPlots %>% group_by(weekday,intervention) %>% 
+                                mutate(meanWeekdayClick=mean(countClick),
+                                       meanWeekdayEngage=mean(countEngage),
+                                       n_dates=length(unique(date))) %>%
+                                select(weekday,intervention,meanWeekdayClick,meanWeekdayEngage,n_dates) %>% distinct()
+                      
+  engageWeekdayMeanPlot<-ggplot(meanEngage,aes(x=weekday,y=meanWeekdayEngage,group=intervention)) + 
+                            geom_point(color="#619CFF") + 
+                            geom_line(color="#619CFF")+
+                            facet_wrap(~intervention,ncol=3)+
+                            #scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                            theme_classic() +
+                            labs(x="Weekday",
+                                 y="Mean Daily Engagement",
+                                 title="Mean daily engagement\nper weekday and period") +
+                            theme(axis.title.x = element_text(face="bold"),
+                                  axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                  axis.title.y = element_text(face="bold"),
+                                  plot.title = element_text(face="bold",
+                                                            hjust=0.5))
+  clickWeekdayMeanPlot<-ggplot(meanEngage,aes(x=weekday,y=meanWeekdayClick,group=intervention)) + 
+                           geom_point(color="#FFC833") + 
+                           geom_line(color="#FFC833")+
+                           facet_wrap(~intervention,ncol=3)+
+                           #scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                           theme_classic() +
+                           labs(x="Weekday",
+                                 y="Mean Daily Clicks",
+                                 title="Mean daily clicks\nper weekday and period") +
+                           theme(axis.title.x = element_text(face="bold"),
+                                 axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                 axis.title.y = element_text(face="bold"),
+                                 plot.title = element_text(face="bold",
+                                                            hjust=0.5))
+  grid.arrange(clickWeekdayMeanPlot,engageWeekdayMeanPlot,ncol=2)
+```
+
+## MVPA
+
+#### Distribution/frequency of MVPA - with and without including 0s
+First, lets assess the distribution of MVPA across participant-days. Similar to the engagement metrics, minutes of MVPA is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if MVPA (right). 
+```{r,echo=FALSE}
+  summary(dailyForPlots$totalMVPA)
+  freqMVPA<-ggplot(dailyForPlots,aes(x=totalMVPA)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Daily minutes of MVPA",
+                               y="Frequency",
+                               title="Minutes of MVPA per day and\nparticipant") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  freqMVPA_noZeros<-ggplot(dailyForPlots[dailyForPlots$totalMVPA>0,],aes(x=totalMVPA)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Daily minutes of MVPA",
+                               y="Frequency",
+                               title="Minutes of MVPA per day and\n participant (excluding values of 0)") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  grid.arrange(freqMVPA,freqMVPA_noZeros,ncol=2)
+```
+
+### Plot of minutes of MVPA per day over time -- overall and comparing engagers and non-engagers
+Next, lets assess how daily MVPA varies over time. There is no obvious trend over time, though there is a slight bow to the loess line that appears to correspond (roughly) to the intervention period. 
+```{r,echo=FALSE,warning=FALSE}
+  dailyMVPA<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA))+
+             geom_point(data=dailyForPlots,aes(x=date,y=totalMVPA,color=intervention),alpha=0.25) + 
+             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+             theme_classic() +
+             geom_smooth(color="black") + 
+             labs(x="Date",
+                  y="Daily minutes of MVPA",
+                  title="Daily minutes of MVPA, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))
+  dailyMVPA
+```
+
+Interestingly, this "bowing" of the loess curve appears to be driven by participants that engaged with the app content (at least once)
+```{r,echo=FALSE,warning=FALSE}
+  dailyMVPA<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA))+
+             geom_point(data=dailyForPlots,aes(x=date,y=totalMVPA,color=intervention),alpha=0.25) + 
+             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+             facet_wrap(~ever_engage,ncol=2) +
+             theme_classic() +
+             geom_smooth(color="black") + 
+             labs(x="Date",
+                  y="Daily minutes of MVPA",
+                  title="Daily minutes of MVPA, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))
+  dailyMVPA
+```
+
+#### Minutes of MVPA per day and participant - Queen's vs. UBC
+Overall, MVPA is slightly higher at Queens; MVPA is lower at UBC and dips slightly during the intervention period. 
+```{r,echo=FALSE}
+  dailyMVPAcampus<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA,color=University))+
+                           scale_color_manual(values=c("#619CFF","#FFC833")) +
+                           geom_point() + 
+                           theme_classic() +
+                           geom_smooth() + 
+                           labs(x="Date",
+                                y="Daily minutes of MVPA",
+                                title="Daily minutes of MVPA - By Campus") + 
+                            theme(axis.title.x = element_text(face="bold"),
+                                                          axis.title.y = element_text(face="bold"),
+                                                          plot.title = element_text(face="bold",
+                                                                                    hjust=0.5))
+  dailyMVPAcampus
+```
+
+The relationship between MVPA and campus also differs when you stratify by engagers and non-engagers. Among engagers, participant's at Queen's were more active, and there appears to be a slightly increase in MVPA during the intervention period (as seen above), while engagers at UBC exhibited a dip in daily MVPA during the middle of the intervention period (left panel). Converely, non-engagers at UBC were more active than non-engagers at Queen's (right), though daily MVPA remained largely stable at both campuses over time. 
+```{r,echo=FALSE}
+  dailyMVPAcampus<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA,color=University))+
+                           scale_color_manual(values=c("#619CFF","#FFC833")) +
+                           geom_point() + 
+                           facet_wrap(~ever_engage,ncol=2) +
+                           theme_classic() +
+                           geom_smooth() + 
+                           labs(x="Date",
+                                y="Daily minutes of MVPA",
+                                title="Daily minutes of MVPA - By Campus") + 
+                            theme(axis.title.x = element_text(face="bold"),
+                                                          axis.title.y = element_text(face="bold"),
+                                                          plot.title = element_text(face="bold",
+                                                                                    hjust=0.5))
+  dailyMVPAcampus
+```
+
+#### Minutes of MVPA per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
+Intervention content was released on Mondays and Wednesdays. The following plot would suggest no major difference in daily MVPA on Monday/Wednesday vs. other days of the week. 
+```{r,echo=FALSE}
+  dailyMVPAweekday<-ggplot(daily,aes(x=date,y=totalMVPA,color=mon_wed))+
+             geom_point() + 
+             scale_color_manual(values=c("#619CFF","#FFC833")) +
+             theme_classic() +
+             geom_smooth() + 
+             labs(x="Date",
+                  y="Daily minutes of MVPA",
+                  title="Daily minutes of MVPA:\nMonday and Wednesday vs. other days") +
+             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                   axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailyMVPAweekday
+```
+
+It doesn't look like Mondays/Wednesdays have higher MVPA for either group (again, we see the non-engagers MVPA level remained more stable over time compared to engagers)
+```{r,echo=FALSE}
+  dailyMVPAweekdayEngage<-ggplot(daily,aes(x=date,y=totalMVPA,color=mon_wed))+
+             geom_point() + 
+             facet_wrap(~ever_engage,ncol=2)+
+             scale_color_manual(values=c("#619CFF","#FFC833")) +
+             theme_classic() +
+             geom_smooth() + 
+             labs(x="Date",
+                  y="Daily minutes of MVPA",
+                  title="Daily minutes of MVPA:\nMonday and Wednesday vs. other days") +
+             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                   axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailyMVPAweekdayEngage
+```
+#### Trend: Minutes of MVPA per day in the pre-intervention, intervention and post-intervention period
+It appears that daily MVPA "ramped-up" during the pre-intervention period and was sustained throughout the intervention period. 
+```{r,echo=FALSE}
+  dailyMVPAint<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA,color=intervention,group=intervention))+
+                       geom_point(alpha=0.25) + 
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                       theme_classic() +
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",]) + 
+                                             labs(x="Date",
+                                                  y="Daily minutes of MVPA",
+                                                  title="Daily minutes of MVPA:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailyMVPAint
+```
+
+We see a similar trend among the non-engagers; however, they appear to have ramped up to a slightly lower level of daily MVPA. This may suggest that at least part of the intervention effect is the fitbit itself, since even non-engagers saw slightly increases. 
+```{r,echo=FALSE}
+  dailyMVPAintEngage<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA,color=intervention,group=intervention))+
+                       geom_point(alpha=0.25) + 
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                       facet_wrap(~ever_engage,ncol=2)+
+                       theme_classic() +
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",]) + 
+                                             labs(x="Date",
+                                                  y="Daily minutes of MVPA",
+                                                  title="Daily minutes of MVPA:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailyMVPAintEngage
+```
+
+#### Daily minutes of MVPA, faceted by week number
+Another way to visualize changes over time
+```{r,echo=FALSE}
+  dailyMVPAweekday<-ggplot(dailyForPlots,aes(x=weekday,y=totalMVPA,color=intervention))+
+                                             geom_jitter(alpha=0.25) + 
+                                             #scale_color_hue(h = c(180, 300)) +
+                                             #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                                             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                                             facet_wrap(~weekStart,ncol=4) +
+                                             theme_classic() +
+                                             labs(x="Date",
+                                                  y="Daily minutes of MVPA",
+                                                  title="Daily minutes of MVPA, by week:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailyMVPAweekday
+```
+
+#### Mean daily MVPA, by date
+Mean daily MVPA per day. Trend looks as described previously; daily MVPA ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
+```{r,echo=FALSE}
+  meanMVPA_date<-dailyForPlots %>% ungroup() %>%
+                                   select(Id,date,intervention,totalMVPA) %>%
+                                   group_by(date) %>% 
+                                   mutate(meanMVPA=mean(totalMVPA),
+                                          n=length(unique(Id))) %>% 
+                                   select(-Id,-totalMVPA) %>% distinct()
+  meanMVPA_datePeriod<-ggplot(meanMVPA_date,aes(x=date,y=meanMVPA,group=intervention,color=intervention))+
+                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                         geom_point() + 
+                         geom_line() +
+                         theme_classic() +
+                         labs(x="Date",
+                              y="Mean daily minutes of MVPA",
+                              title="Mean daily minutes of MVPA, by day") + 
+                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",hjust=0.5)) 
+  meanMVPA_datePeriod
+```
+
+Similar trends are observed among engagers and non-engagers; however, mean MVPA for non-engagers are more impacted by outlying values, since there were so few non-engagers (n=7). 
+```{r,echo=FALSE}
+  meanMVPA_dateEngage<-dailyForPlots %>% ungroup() %>%
+                                         select(Id,date,intervention,totalMVPA,ever_engage) %>%
+                                         group_by(date,ever_engage) %>% 
+                                         mutate(meanMVPA=mean(totalMVPA),
+                                                n=length(Id)) %>% 
+                                         select(-Id,-totalMVPA) %>% distinct()
+  meanMVPA_datePeriodEngage<-ggplot(meanMVPA_dateEngage,aes(x=date,y=meanMVPA,group=intervention,color=intervention))+
+                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                         facet_wrap(~ever_engage,ncol=2)+
+                         geom_point() + 
+                         geom_line() +
+                         theme_classic() +
+                         geom_smooth(data=meanMVPA_dateEngage[meanMVPA_dateEngage$intervention=="intervention",],aes(x=date,y=meanMVPA)) +
+                         labs(x="Date",
+                              y="Mean daily minutes of MVPA",
+                              title="Mean daily minutes of MVPA, by day and engagement status") + 
+                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",hjust=0.5)) +
+                         ylim(0,max(meanMVPA_dateEngage$meanMVPA))
+  meanMVPA_datePeriodEngage
+```
+
+#### Median daily MVPA 
+
+Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of MVPA per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily MVPA exhibits a cyclical trend as well. 
+```{r,echo=FALSE}
+  medianMVPA_date<-dailyForPlots %>% ungroup() %>%
+                                   select(Id,date,intervention,totalMVPA) %>%
+                                   group_by(date) %>% 
+                                   mutate(medianMVPA=median(totalMVPA),
+                                          n=length(unique(Id))) %>% 
+                                   select(-Id,-totalMVPA) %>% distinct()
+  medianMVPA_datePeriod<-ggplot(medianMVPA_date,aes(x=date,y=medianMVPA,group=intervention,color=intervention))+
+                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                         geom_point() + 
+                         geom_line() +
+                         theme_classic() +
+                         labs(x="Date",
+                              y="Median daily minutes of MVPA",
+                              title="Median daily minutes of MVPA, by day") + 
+                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",hjust=0.5)) 
+  medianMVPA_datePeriod
+```
+
+Daily MVPA looks noticeably lower for non-engagers vs. engagers when you use median instead of mean, but both groups do ramp up during pre-intervention period and decline slightly throughput the intervention period
+```{r,echo=FALSE}
+  medianMVPA_dateEngage<-dailyForPlots %>% ungroup() %>%
+                                         select(Id,date,intervention,totalMVPA,ever_engage) %>%
+                                         group_by(date,ever_engage) %>% 
+                                         mutate(medianMVPA=median(totalMVPA),
+                                                n=length(Id)) %>% 
+                                         select(-Id,-totalMVPA) %>% distinct()
+  medianMVPA_datePeriodEngage<-ggplot(medianMVPA_dateEngage,aes(x=date,y=medianMVPA,group=intervention,color=intervention))+
+                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                         facet_wrap(~ever_engage,ncol=2)+
+                         geom_point() + 
+                         geom_line() +
+                         theme_classic() +
+                         geom_smooth(data=medianMVPA_dateEngage[medianMVPA_dateEngage$intervention=="intervention",],aes(x=date,y=medianMVPA)) +
+                         labs(x="Date",
+                              y="Median daily minutes of MVPA",
+                              title="Median daily minutes of MVPA, by day and engagement status") + 
+                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",hjust=0.5)) +
+                         ylim(0,max(medianMVPA_dateEngage$medianMVPA))
+  medianMVPA_datePeriodEngage
+```
+
+#### Mean daily MVPA, by weekday and intervention period
+Trends in the pre- and post- periods must be interpreted with caution, as there is only 1 (or 2) dates contributing to the estimates for each weekday in these two periods. As such, both are ~ the trend over time (with the exception of Sunday in the post-period, which is based on two days of data)
+```{r,echo=FALSE}
+  meanMVPA_weekday<-dailyForPlots %>% ungroup() %>%
+                                      select(Id,weekday,intervention,totalMVPA) %>%
+                                      group_by(intervention,weekday) %>% 
+                                      mutate(meanMVPA=mean(totalMVPA),
+                                             n=length(Id)) %>% select(-totalMVPA,-Id) %>% distinct()
+  meanMVPA_weekdayWide<-pivot_wider(meanMVPA_weekday,id_cols="weekday",names_from="intervention",values_from="meanMVPA")
+  meanMVPA_weekdayPeriod<-ggplot(meanMVPA_weekday,aes(x=weekday,y=meanMVPA,group=intervention,color=intervention))+
+                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                         geom_point() + 
+                         geom_line() +
+                         theme_classic() +
+                         #geom_smooth() + 
+                         labs(x="Date",
+                              y="Mean daily minutes of MVPA",
+                              title="Mean daily minutes of MVPA, by weekday") +
+                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",hjust=0.5)) 
+  meanMVPA_weekdayPeriod
+```
+
+There is a slightly different trend in mean daily MVPA among engagers and non-engagers (during the intervention period in particular). Plot is not working when I knit the file so I will exclude for now.
+```{r,echo=FALSE,include=FALSE}
+  meanMVPA_engage<-daily %>% ungroup() %>% select(ever_engage,weekday,intervention,totalMVPA) %>%
+                                           group_by(intervention,weekday,ever_engage) %>% 
+                                           mutate(meanMVPA=mean(totalMVPA))
+  meanMVPA_engage<-meanMVPA_engage %>% select(-totalMVPA) %>% distinct()
+  meanMVPA_engagePeriod<-ggplot(meanMVPA_engage,aes(x=weekday,y=meanMVPA,group=intervention,color=intervention))+
+                                 #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                                 facet_wrap(~ever_engage,ncol=2)+
+                                 scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                                 geom_point() + 
+                                 geom_line() +
+                                 theme_classic() +
+                                 #geom_smooth() + 
+                                 labs(x="Date",
+                                      y="Mean daily minutes of MVPA",
+                                      title="Mean daily minutes of MVPA, by weekday and engagement status") +
+                                 theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                      axis.title.x = element_text(face="bold"),
+                                      axis.title.y = element_text(face="bold"),
+                                      plot.title = element_text(face="bold",hjust=0.5)) 
+  meanMVPA_engagePeriod
+```
+
+## Models
+
+### Exploratory: Linear regression
+
+#### (a) only independent variable is intervention period
+
+Compared to the pre-intervention period, daily MVPA was significantly higher in the intervention period and significantly lower in the post-intervention period
+```{r}
+  linearInt<-lm(totalMVPA~intervention,data=dailyForPlots)
+  summary(linearInt)
+```
+
+#### (b) only independent variable is a binary indicator for Mon/Wed
+
+MVPA was not significantly different on Monday and Wednesday compared to other days of the week (without accounting for any other variables, including intervention period and/or repeated measures within participants)
+```{r}
+  linearMW<-lm(totalMVPA~mon_wed,data=dailyForPlots)
+  summary(linearMW)
+```
+
+#### (c) only independent variable is whether the participant ever engaged (clicked or engaged) with app content
+
+Participants who never enagaged with app content recorded an average of 13 minutes less MVPA per day (statistically significant) compared to those who engaged at least once (note: only a small number of participants (n=7) never engaged)
+```{r}
+  linearEverEngage<-lm(totalMVPA~ever_engage,data=dailyForPlots)
+  summary(linearEverEngage)
+```
+
+#### (d) only independent variable is countClicks
+
+Every one click was associated with a 2 minute increase in MVPA on that date (statistically signiciant)
+```{r}
+  linearCountClick<-lm(totalMVPA~countClick,data=dailyForPlots)
+  summary(linearCountClick)
+```
+
+#### (e) only independent variable is countEngage
+
+Every one engagement was associated with a <1.5 minute increase in MVPA on that date; however, the relationship was not statistically significant
+```{r}
+  linearCountEngage<-lm(totalMVPA~countEngage,data=dailyForPlots)
+  summary(linearCountEngage)
+```
+
+#### (f) intervention + countClicks
+
+Every one click was associated with a 2 minute increase in MVPA on that date (statistically signiciant)
+```{r}
+  linearClicksInt<-lm(totalMVPA~countClick+intervention,data=dailyForPlots)
+  summary(linearClicksInt)
+```
+
+### zero-inflated poisson/hurdle models?? 
 

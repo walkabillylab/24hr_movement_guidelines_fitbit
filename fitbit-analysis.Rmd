@@ -19,8 +19,7 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 getwd()
 ```
 
-As per discussions last week, the plan is to: 
-(1) Prepare visualizations using the FitBit day-level intensity data
+This report includes (a) cleaning and exploration of intra-day and day-level Fitbit activity data, (b) creation of a day-level "table of power", including day-level data from Fitbit (vs. minute-level data aggregated at the level of the day), and (c) preliminary analyses of day-level MVPA vs. day-level engagement/clicks. 
 
 # 1. Read in Data
 
@@ -101,7 +100,6 @@ The 18 data types are as follows:
   key<-key %>% rename(email=PAC_Email,
                       Id=Fitbit_ID)
   key$email<-gsub(" ","",key$email)
-  str(key$email)
 ```
 
 ## C. Read in engagement data
@@ -124,7 +122,7 @@ Intraday datasets including minute-level data:
 
 Sleep stage information is also available measured at 30-second increments (30secondSleepStages). 
 
-### Explore intraday data: 
+### Explore intra-day data: 
 
 #### i. Minute-level steps:  
 
@@ -141,7 +139,10 @@ Number of steps per minute
 Plot of step frequency
 ```{r,echo=FALSE}
   summary(minuteStepsNarrow$Steps)
-  #ggplot(minuteStepsNarrow,aes(Steps)) + geom_histogram() + theme_classic() + labs(y="Steps per minute")
+  ggplot(minuteStepsNarrow,aes(Steps)) + 
+         geom_histogram() + 
+         theme_classic() + 
+         labs(y="Steps per minute")
 ```
 
 
@@ -157,14 +158,14 @@ Very few records have 0 calories. Fitbit appears to apply a baseline number of c
   length(minuteCaloriesNarrow[minuteCaloriesNarrow$Calories==0,]$Id)
 ```
 
-Plot of calorie frequency
+Plot of calorie/min frequency
 ```{r,echo=FALSE}
   summary(minuteCaloriesNarrow$Calories)
-  #ggplot(minuteCaloriesNarrow,aes(Calories)) + geom_histogram() + theme_classic() + labs(x="Calories per minute")
+  ggplot(minuteCaloriesNarrow,aes(Calories)) + geom_histogram() +   theme_classic() + labs(x="Calories per minute")
 ```
 
 
-#### iii. minute-level activity intensity
+#### iii. Minute-level activity intensity
 
 Minute-level intensity
 ```{r}
@@ -174,20 +175,20 @@ Minute-level intensity
 Plot of intensity frequency
 ```{r,echo=FALSE}
   summary(minuteIntensitiesNarrow$Intensity)
-  #ggplot(minuteIntensitiesNarrow,aes(Intensity)) + geom_histogram() + theme_classic() + labs(x="Minute-level intensity")
+  ggplot(minuteIntensitiesNarrow,aes(Intensity)) + geom_histogram() + theme_classic() + labs(x="Minute-level intensity")
 ```
 
-#### iv. minute-level METs
+#### iv. Minute-level METs
 
 Minute-level METs
 ```{r}
   str(minuteMETsNarrow) # MET value measued each minute
 ```
 
-Plot of strange MET values
+Plot of strange MET values -- values are much higher than expected
 ```{r,echo=FALSE}
   summary(minuteMETsNarrow$METs)
-  #ggplot(minuteMETsNarrow,aes(METs)) + geom_histogram() + theme_classic() + labs(x="minute-level METs")
+  ggplot(minuteMETsNarrow,aes(METs)) + geom_histogram() + theme_classic() + labs(x="minute-level METs")
 ```
 
 
@@ -198,16 +199,15 @@ Minute-level heart rate
   str(heartrate_1min) # heart rate measured each minute -- fewer measurements than above
 ```
 
-Strange MET values
+Plot of minute-level heart rate
 ```{r,echo=FALSE}
-  summary(minuteMETsNarrow$METs)
-  #ggplot(minuteMETsNarrow,aes(METs)) + geom_histogram() + theme_classic() + labs(x="minute-level METs")
+  summary(heartrate_1min$Value)
+  ggplot(heartrate_1min,aes(Value)) + geom_histogram() + theme_classic() + labs(x="minute-level heart rate")
 ```
 
 ### Merge minute-level activity data into one dataframe
 
-#### merge minute-level calories, intensities, METs and steps
-
+First, merge minute-level calories, intensities, METs and steps
 ```{r}
   minute <- minuteCaloriesNarrow %>% full_join(minuteIntensitiesNarrow, by = c("ActivityMinute","Id")) %>%
                                      full_join(minuteMETsNarrow, by = c("ActivityMinute","Id")) %>%
@@ -215,8 +215,7 @@ Strange MET values
   rm(minuteCaloriesNarrow,minuteIntensitiesNarrow,minuteMETsNarrow,minuteStepsNarrow)
 ```
 
-#### merge minute-level heart rate data to other minute-level activity data
-
+Next, merge minute-level heart rate data to other minute-level activity data
 ```{r}
   heartrate_1min$ActivityMinute<-heartrate_1min$Time
   heartrate_1min<-heartrate_1min %>% select(-Time)
@@ -224,16 +223,14 @@ Strange MET values
   rm(heartrate_1min)
 ```
 
-#### generate dateTime and date variables with common naming convention 
-
+Generate dateTime and date variables with common naming convention 
 ```{r}
   minute$dateTime<-lubridate::mdy_hms(minute$ActivityMinute)
   minute$date<-as.Date(minute$dateTime)
   minute<-minute %>% select(-ActivityMinute)
 ```
 
-#### assess time period of data
-
+Assess time period of data
 ```{r}
   min(minute$date)
   max(minute$date)
@@ -355,8 +352,7 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
   # minute$minuteWearing<-ifelse(is.na(minute$minuteHeartRate),0,1)
 ```
 
-#### reformat minute-level intensity 
-
+Reformat minute-level intensity 
 ```{r}
   minute$minuteIntensity1<-minute$minuteIntensity
   minute$minuteIntensity<-ifelse(minute$minuteIntensity==0,"minuteSedentary",
@@ -379,6 +375,12 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
   str(dailyCalories)
 ```
 
+Distribution: Daily calories
+```{r,echo=FALSE}
+  summary(dailyCalories$Calories)
+  ggplot(dailyCalories,aes(Calories)) + geom_histogram() + theme_classic() + labs(x="Daily Calories")
+```
+
 #### ii. Day-level intensities
 
 ```{r}
@@ -391,10 +393,22 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
   str(dailySteps)
 ```
 
+Distribution: daily steps
+```{r,echo=FALSE}
+  summary(dailySteps$StepTotal)
+  ggplot(dailySteps,aes(StepTotal)) + geom_histogram() + theme_classic() + labs(x="Daily Steps")
+```
+
 #### iv. Day-level sleep 
 
 ```{r}
   str(sleepDay)
+```
+
+Distribution: daily total time in bed
+```{r,echo=FALSE}
+  summary(sleepDay$TotalTimeInBed)
+  ggplot(sleepDay,aes(TotalTimeInBed)) + geom_histogram() + theme_classic() + labs(x="Daily Time in Bed")
 ```
 
 #### v. Day-level sleep stages
@@ -413,44 +427,34 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
   rm(dailyCalories,dailyIntensities,dailySteps)
 ```
 
-#### generate date variable (named to align with date column in minute-level datasets)
-
+Generate date variable (named to align with date column in minute-level datasets)
 ```{r}
   str(daily$ActivityDay)
   daily$date<-as.Date(daily$ActivityDay,"%m/%d/%Y")
-  lubridate::tz(daily$date)
-  min(daily$date)
-  max(daily$date)
 ```
 
 ### Merge day-level activity data and day-level sleep data 
 
-#### generate date in the day-level sleep data 
-
+Generate date in the day-level sleep data 
 ```{r}
   sleepStagesDay$date<-as.Date(lubridate::mdy_hms(sleepStagesDay$SleepDay))
-  min(sleepStagesDay$date)
-  max(sleepStagesDay$date)
 ```
 
-#### merge day-level activity data and day-level sleep data
-
+Merge day-level activity data and day-level sleep data
 ```{r}
   daily<-daily %>% full_join(sleepStagesDay, by = c("date","Id"))
   daily<-daily %>% select(-ActivityDay,-SleepDay)
   rm(sleepStagesDay)
 ```
 
-#### rename columns in day-level data (so it is clear which columns are minute- vs. day-level)
-
+Rename columns in day-level data (so it is clear which columns are minute- vs. day-level)
 ```{r}
   daily<-daily %>% rename(TotalCalories=Calories) %>%
                    relocate(date,.after=Id) 
   names(daily)
 ```
 
-#### create intervention flag in day-level data
-
+Create intervention flag in day-level data
 ```{r}
   daily$intervention<-ifelse(daily$date < "2021-10-25","pre",
                       ifelse(daily$date >= "2021-12-05","post","intervention"))
@@ -459,18 +463,17 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
 ```
 
 
-### merge minute- and day-level dataframes
+### Merge minute- and day-level dataframes
 
 ```{r}
   data<-merge(daily,minute,by=c("Id","date"))
 ```
 
-## add battery (and syncEvents) data
+### C. Explore remaining dataframes
 
-### explore data
+#### Battery (and syncEvents) data
 
-#### clean columns in battery data
-
+Clean columns in battery data
 ```{r}
   battery$dateTime<-as.character(lubridate::mdy_hms(battery$DateTime))
   substr(battery$dateTime,18,19)<-"00"
@@ -479,8 +482,7 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
   battery<-battery %>% select(Id,dateTime,lastSync,DeviceName,BatteryLevel)
 ```
 
-#### sometimes there are multiple sync's per minute, but they always have the same battery level
-
+Sometimes there are multiple sync's per minute, but they always have the same battery level
 ```{r}
 # sometimes there are multiple syncs within the same minute
   test<-battery %>% group_by(Id,dateTime) %>% mutate(length=length(Id),
@@ -489,68 +491,60 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
   rm(test)
 ```
 
-
-#### take list of distinct battery measurements (one per minute maximum)
-
+Take list of distinct battery measurements (one per minute maximum)
 ```{r}
   battery<-distinct(battery,across(-"lastSync"))
 ```
 
 
-#### explore syncEvents - contains no additional info above and beyond battery data
-
+syncEvents dataframe does not contain any additional info above and beyond battery data
 ```{r}
   names(syncEvents)
 # will use battery data instead (has the same and more information as syncEvents)
   rm(syncEvents)
 ```
 
-### merge battery data with activity and sleep data
-
+Merge battery data with activity and sleep data
 ```{r}
   data<-merge(data,battery,by=c("Id","dateTime"),all=TRUE)
   rm(battery)
 ```
 
-### C. Explore remaining dataframes
+#### sleepLogInfo
 
-### sleepLogInfo
-
+sleepLogInfo contains other information re: sleep, including the time they went to sleep, how efficient the sleep was, minutes to fall asleep, time in bed, awakeCount, AwakeDuration, RestlessCount, Restless Duration
 ```{r}
-# contains other information re: sleep, including the time they went to sleep, how efficient the sleep was, minutes to fall asleep, time in bed, awakeCount, AwakeDuration, RestlessCount, Restless Duration
 # may not be necessary for this study? will omit for now and revisit
   str(sleepLogInfo)
   rm(sleepLogInfo)
 ```
 
-### sleepStageLogInfo
+#### sleepStageLogInfo
 
+This seems to contain more information relating to each individual sleep bout of sleep, including the time spent in each intensity
 ```{r}
-# more information relating to each individual sleep bout of sleep, including the time spent in each intensity
 # however, primary dataframe (data) already contains much of the high-level summary statistics re: sleep
   str(sleepStageLogInfo)
   rm(sleepStageLogInfo)
 ```
 
-### 30 second sleep stages
+#### 30 second sleep stages
 
+We already have minute-level sleep stages (incorporated into the dataframe); however, this has data regarding the sleep level, as well as any interruptions (short wakes) and what the sleep stage was during that short wake
 ```{r}
-# already have minute-level sleep stages (incorporated into the dataframe)
   str(`30secondSleepStages`)
   rm(`30secondSleepStages`)
 ```
 
-### heartRateZones
+#### heartRateZones
 
+Long dataset with day-level heart rate zone information with four rows per person, one per each zone (out of range, fat burn, cardio, peak), and additional columns defining the minimum and maximum HR values for each zone. 
 ```{r}
-# long dataset with day-level heart rate zone information 
-# four rows per person, one per each zone (out of range, fat burn, cardio, peak)
 # structured this way to have a min and max column defining the heart rate range corresponding to the label (range will differ between participants)
   str(heartRateZones)
 ```
 
-#### re-structure heartRateZones before merging
-
+Re-structure heartRateZones before merging
 ```{r}
 
 # create a "range column" for each (can always parse into min/max columns if necessary?)
@@ -579,21 +573,19 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
   rm(HRzoneMinutes,heartRateZones,HRrange)
 ```
 
-#### generate date column in day-level heartrate zone data
-
+Generate date column in day-level heartrate zone data
 ```{r}
   HRzones$date<-as.Date(HRzones$ActivityDay,"%m/%d/%Y")
   HRzones<-HRzones %>% select(-ActivityDay)
 ```
 
-#### merge with data
-
+Merge with data
 ```{r}
   data<-merge(data,HRzones,by=c("Id","date"))
   rm(HRzones)
 ```
 
-### activitylogs
+#### activitylogs
 
 ```{r}
 # similar to sleepLogInfo and sleepStageLogInfo, but for workouts
@@ -601,16 +593,14 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
   str(activitylogs)
 ```
 
-#### can merge workout data at the start time?
-
+Can merge workout data at the start time?
 ```{r}
   activitylogs$dateTime<-paste(activitylogs$Date,activitylogs$StartTime,sep=" ")
   substr(activitylogs$dateTime,18,19)<-"00"
   activitylogs$dateTime<-lubridate::mdy_hms(activitylogs$dateTime)
 ```
 
-#### select and rename columns 
-
+Select and rename columns 
 ```{r}
   activitylogs$date<-as.Date(activitylogs$dateTime)
   activitylogs<-activitylogs %>% select(-Date,-StartTime,-ActivityType) %>%
@@ -635,7 +625,7 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
 ```
 
 
-### generate count of workouts per day, unique types of workouts per day, total duration of workouts
+Generate count of workouts per day, unique types of workouts per day, total duration of workouts
 ```{r}
   activitylogs$activity_duration<-activitylogs$activity_sedentaryMins+
                                   activitylogs$activity_lightlyActiveMins+
@@ -650,8 +640,7 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
 ```
 
 
-#### merge with data
-
+Merge with data
 ```{r}
   data<-merge(data,activitylogs[,!(colnames(activitylogs) %in% c("date"))],by=c("Id","dateTime"),all.x=TRUE)
   rm(activitylogs)
@@ -708,28 +697,34 @@ Difference in calories:
   summary(compare$diffCalories) 
       # agree for ~2300 participant-days; 
       # disagrees for just over 100 participant-days, most by a relatively small amount, 12 by more than 100 calories 
+  ggplot(compare,aes(diffCalories)) + geom_histogram() + theme_classic() + labs(x="Difference in daily calories")
 ```
 
 Difference in minutes of light activity: 
 ```{r}
   # diffSed: issues with day-level measure of sedentary time -- appears to take another category into account?
   summary(compare$diffLight) # disagrees for 4 people-days, by no more than 12 minutes
+  ggplot(compare,aes(diffLight)) + geom_histogram() + theme_classic() + labs(x="Difference in daily light activity")
 ```
 
 Difference in minutes of fairly active: 
 ```{r}
   # diffSed: issues with day-level measure of sedentary time -- appears to take another category into account?
   summary(compare$diffFairly) # disagrees for 3 people-days, by no more than 7 minutes
+  str(compare$diffFairly)
+  ggplot(compare,aes(diffFairly)) + geom_histogram() + theme_classic() + labs(x="Difference in fairly active minutes")
 ```
 
 Difference in minutes of very active: 
 ```{r}
   summary(compare$diffVery) # disagrees for 2 people-days, by no more than 5 minutes
+  ggplot(compare,aes(diffVery)) + geom_histogram() + theme_classic() + labs(x="Difference in very active minutes")
 ```
 
 Difference in steps: 
 ```{r}
   summary(compare$diffSteps) # disagrees for ~150 people-days, 12 people/days differ by more than 100 steps (9 by >1000 steps)
+  ggplot(compare,aes(diffSteps)) + geom_histogram() + theme_classic() + labs(x="Difference in daily steps")
 ```
 
 ```{r}

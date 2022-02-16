@@ -892,11 +892,11 @@ Next steps: Replace chi-square with non-parametric ranked statistic (to revisit)
 
 Remove engagement data frames
 ```{r}
-  rm(engage,engage_participant,engage_time_varying,estHR)
+  rm(engage,engage_participant,engage_time_varying)
 ```
 
 
-# 4. Analysis
+# 4. Prepare and export TOP 
 
 To do: 
 (1) Plot daily MVPA, faceted by week - DONE
@@ -936,25 +936,51 @@ Remove participant-days where totalMVPA is na
   daily<-daily[!is.na(daily$totalMVPA),]
 ```
 
-Generate count of clicks and engagements per participant per day: group by date and Id, sum the binary/dummy variable for clicks and engagements to generate a count per day per participant
+Generate new clickInt and engageInt variables that are binary flags for clicks and engagement with intervention content specifically
+```{r}
+  daily$clickInt<-ifelse(daily$click==1 & daily$intervention_content=="yes",1,
+                        ifelse(daily$intervention_content=="no"|is.na(daily$intervention_content),0,NA))
+  daily$engageInt<-ifelse(daily$engage==1 & daily$intervention_content=="yes",1,
+                        ifelse(daily$intervention_content=="no"|is.na(daily$intervention_content),0,NA))
+```
+
+#### Summarize clicks and engagement: Counts of clicks, engagement over different time periods (overall, by intervention period, by day)
+(1) per participant-day (dayCountAny, dayEngageAny, dayEngageInt, dayCountInt): group by date and Id, sum the binary/dummy variable for clicks, engagements, clicks on intervention content, and engagement on intervention content to get counts per day
+(2) per participant-period (periodCountAny, periodEngageAny, periodEngageInt, periodCountInt): group by Id and intervention period, sum the binary/dummy variable for clicks, engagements, clicks on intervention content, and engagement on intervention content to get counts per intervention period
+(3) per participant (personCountAny, personEngageAny, personEngageInt, personCountInt): group by Id, sum the binary/dummy variable for clicks, engagements, clicks on intervention content, and engagement on intervention content to get counts per intervention period
 ```{r}
 # set click and engage to 0 if na
   daily$click<-ifelse(is.na(daily$click),0,daily$click)
   daily$engage<-ifelse(is.na(daily$engage),0,daily$engage)
-  daily<-daily %>% group_by(Id,date) %>% mutate(countEngage=sum(engage),
-                                                countClick=sum(click))
+  daily<-daily %>% group_by(Id,date) %>% mutate(dayCountEngageAny=sum(engage),
+                                                dayCountClickAny=sum(click),
+                                                dayCountEngageInt=sum(engageInt),
+                                                dayCountClickInt=(clickInt)) %>%
+                   ungroup() %>% group_by(Id,intervention) %>% mutate(periodCountClickAny=sum(click),
+                                                                      periodCountEngageAny=sum(engage),
+                                                                      periodCountClickInt=sum(clickInt),
+                                                                      periodCountEngageInt=sum(engageInt)) %>% 
+                   ungroup() %>% group_by(Id) %>% mutate(personCountClickAny=sum(click),
+                                                         personCountEngageAny=sum(engage),
+                                                         personCountClickInt=sum(clickInt),
+                                                         personCountEngageInt=sum(engageInt))
 ```
 
+#### Summarize clicks and engagement: Mean daily enagement over different periods (overall, by intervention period)
 Calculate average daily clicks and engagements per participant, and per participant and period (pre, intervention, post)
 ```{r}
-  daily<-daily %>% group_by(Id) %>% mutate(meanDailyClick=mean(countClick),
-                                           meanDailyEngage=mean(countEngage),
-                                           meanDailyMVPA=mean(totalMVPA),
-                                           medianDailyMVPA=median(totalMVPA)) %>%
-                   group_by(Id,intervention) %>% mutate(meanDailyClickPeriod=mean(countClick),
-                                                        meanDailyEngagePeriod=mean(countEngage),
-                                                        meanDailyMVPAPeriod=mean(totalMVPA),
-                                                        medianDailyMVPAPeriod=median(totalMVPA))
+  daily<-daily %>% group_by(Id) %>% mutate(personMeanDailyClickAny=mean(dayCountClickAny),
+                                           personMeanDailyEngageAny=mean(dayCountEngageAny),
+                                           personMeanDailyClickInt=mean(dayCountClickInt),
+                                           personMeanDailyEngageInt=mean(dayCountEngageInt),
+                                           personMeanDailyMVPA=mean(totalMVPA),
+                                           personMedianDailyMVPA=median(totalMVPA)) %>%
+                   group_by(Id,intervention) %>% mutate(periodMeanDailyClickAny=mean(dayCountClickAny),
+                                                        periodMeanDailyEngageAny=mean(dayCountEngageAny),
+                                                        periodMeanDailyClickInt=mean(dayCountClickInt),
+                                                        periodMeanDailyEngageInt=mean(dayCountEngageInt),
+                                                        periodMeanDailyMVPA=mean(totalMVPA),
+                                                        periodMedianDailyMVPA=median(totalMVPA))
 ```
 
 ## Write CSV file for TOP

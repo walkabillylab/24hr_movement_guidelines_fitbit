@@ -16,6 +16,7 @@ library(foreign)
 library(readxl)
 library(gridExtra)
 library(sjPlot)
+knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 ```
 
 # Fitbit analysis
@@ -26,13 +27,36 @@ This script contains preliminary figures and data analysis for Fitbit data.
 daily <- read_csv("daily-TOP-CSEP.csv")
 ```
 
-Create person-day-level and person-level datasets for plots. Currently, the "daily" dataframe has one row per person-day-article, so if someone engages with two different articles, they have two rows in the dataframe. I want a maximum of one row per person per day for data exploration. 
+Make sure that the intervention variable and the weekday variables are formatted as factors where the intervention periods and weekdays are ordered correctly (pre, intervention, post; monday, tuesday, etc.)
+
+```{r}
+  daily$weekday<-factor(daily$weekday,
+                        levels=c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"))
+  daily$intervention<-factor(daily$intervention,levels=c("pre","intervention","post"))
+  str(daily$weekday)
+  str(daily$intervention)
+```
+
+Create person-day-level for plots. Currently, the "daily" dataframe has one row per person-day-article, so if someone engages with two different articles, they have two rows in the dataframe. I want a maximum of one row per person per day for data exploration. 
 ```{r}
   dailyForPlots<-daily[!is.na(daily$totalMVPA),] %>% select(-title,-intervention_content,-featured_content,-pubdate,-weekofpublish,
                                                             -type,-click,-engage)
   dailyForPlots<-distinct(dailyForPlots)
-  person<-daily %>% ungroup() %>% select(Id,ever_engage,meanDailyClick,meanDailyEngage,meanDailyMVPA,medianDailyMVPA) %>% distinct
-  personPeriod<-daily %>% ungroup() %>% select(Id,ever_engage,intervention,meanDailyClickPeriod,meanDailyEngagePeriod,meanDailyMVPAPeriod,medianDailyMVPAPeriod) %>% distinct
+```
+
+Generate person-level and person-period-level datasets. For both, calculate total clicks and total engagement per person or per person-period
+```{r}
+  person<-daily %>% ungroup() %>% group_by(Id) %>%
+                                  mutate(personClick=sum(countClick),
+                                         personEngage=sum(countEngage)) %>% 
+                                  select(Id,ever_engage,personClick,personEngagemeanDailyClick,meanDailyEngage,
+                                         meanDailyMVPA,medianDailyMVPA) %>% 
+                                  distinct
+  personPeriod<-daily %>% ungroup() %>% group_by(Id,intervention) %>% 
+                          mutate(periodClick=sum(countClick),
+                                 periodEngage=sum(countEngage)) %>% 
+                          select(Id,ever_engage,intervention,personClick,personEngage,meanDailyClickPeriod,meanDailyEngagePeriod,
+                                 meanDailyMVPAPeriod,medianDailyMVPAPeriod) %>% distinct
 ```
 
 ## Engagement and clicks:
@@ -71,41 +95,6 @@ Total clicks and engagements, when summed across participants, appear somewhat c
                                                       hjust=0.5))
   grid.arrange(totalClickDay,totalEngageDay,ncol=1)
 ```
-<!-- #### Mean total engagements and clicks per weekday and intervention period -->
-<!-- Mean total clicks and engagement, calculated as the sum of clicks/engagement for a given weekday in each of the pre-intervention, intervention and post-intervention periods for all participants, divided by the number of dates reflected in the calculation. This is to make the three periods comparable, even though the pre- and post- periods are only ~7 days each.  -->
-```{r,echo=FALSE,include=FALSE}
-  totalEngageClickWeekdayInt<-dailyForPlots %>% group_by(weekday,intervention) %>% mutate(n_dates=length(unique(date)),
-                                                                                          sumClick=sum(countClick)/n_dates,
-                                                                                          sumEngage=sum(countEngage)/n_dates) %>% 
-                                                select(weekday,intervention,sumClick,sumEngage) %>% distinct()
-  engageTotalWeekdayIntPlot<-ggplot(totalEngageClickWeekdayInt,aes(x=weekday,y=sumEngage,group=intervention)) + 
-                            facet_wrap(~intervention,ncol=3) +
-                            geom_jitter(colour="#619CFF") + 
-                            geom_smooth(colour="#619CFF",se=FALSE) + 
-                            theme_classic() +
-                            labs(x="Weekday",
-                                 y="Total engagement",
-                                 title="Total engagement per weekday\nbefore during and after\nthe intervention period") +
-                            theme(axis.title.x = element_text(face="bold"),
-                                  axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                                  axis.title.y = element_text(face="bold"),
-                                  plot.title = element_text(face="bold",
-                                                            hjust=0.5))
-  clickTotalWeekdayIntPlot<-ggplot(totalEngageClickWeekdayInt,aes(x=weekday,y=sumClick,group=intervention)) + 
-                           facet_wrap(~intervention,ncol=3) +
-                           geom_jitter(colour="#FFC833") + 
-                           theme_classic() +
-                           geom_smooth(colour="#FFC833",se=FALSE) + 
-                           labs(x="Weekday",
-                                y="Total clicks",
-                                title="Total clicks per weekday\nbefore during and after\nthe intervention period") +
-                           theme(axis.title.x = element_text(face="bold"),
-                                 axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                                 axis.title.y = element_text(face="bold"),
-                                 plot.title = element_text(face="bold",
-                                                            hjust=0.5))
-  grid.arrange(clickTotalWeekdayIntPlot,engageTotalWeekdayIntPlot,ncol=2)
-```
 ### Clicks and engagement per participant-day
 
 #### Distribution of clicks and engagement per participant and day
@@ -133,6 +122,12 @@ The vast majority of participant-days had 0 clicks and 0 engagement.
                                                          hjust=0.5))
   grid.arrange(countClickPlot,countEngagePlot,ncol=2)
 ```
+
+#### Distribution of clicks and engagement per participant (across the entire study period)
+Can participants be grouped based on how often they engaged over the study period?
+
+
+
 #### Number of clicks and engagement per participant and day over time
 It is hard to make out any interesting patterns because there are so many participant-days with 0 engagement and/or clicks (as observed above)
 ```{r,echo=FALSE}

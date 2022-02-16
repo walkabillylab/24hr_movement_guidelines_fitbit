@@ -24,7 +24,8 @@ knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 This script contains preliminary figures and data analysis for Fitbit data.
 
 ```{r}
-daily <- read_csv("daily-TOP-CSEP.csv")
+daily <- read.csv("daily-TOP-CSEP.csv")
+str(daily$date)
 ```
 
 Make sure that the intervention variable and the weekday variables are formatted as factors where the intervention periods and weekdays are ordered correctly (pre, intervention, post; monday, tuesday, etc.)
@@ -33,31 +34,19 @@ Make sure that the intervention variable and the weekday variables are formatted
   daily$weekday<-factor(daily$weekday,
                         levels=c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"))
   daily$intervention<-factor(daily$intervention,levels=c("pre","intervention","post"))
+  daily$date<-as.Date(daily$date)
   str(daily$weekday)
   str(daily$intervention)
 ```
 
 Create person-day-level for plots. Currently, the "daily" dataframe has one row per person-day-article, so if someone engages with two different articles, they have two rows in the dataframe. I want a maximum of one row per person per day for data exploration. 
 ```{r}
-  dailyForPlots<-daily[!is.na(daily$totalMVPA),] %>% select(-title,-intervention_content,-featured_content,-pubdate,-weekofpublish,
-                                                            -type,-click,-engage)
+  dailyForPlots<-daily[!is.na(daily$totalMVPA),] %>% select(-title,-intervention_content,-featured_content,
+                                                            -pubdate,-weekofpublish,
+                                                            -type,-click,-engage,-clickInt,-engageInt)
   dailyForPlots<-distinct(dailyForPlots)
 ```
 
-Generate person-level and person-period-level datasets. For both, calculate total clicks and total engagement per person or per person-period
-```{r}
-  person<-daily %>% ungroup() %>% group_by(Id) %>%
-                                  mutate(personClick=sum(countClick),
-                                         personEngage=sum(countEngage)) %>% 
-                                  select(Id,ever_engage,personClick,personEngagemeanDailyClick,meanDailyEngage,
-                                         meanDailyMVPA,medianDailyMVPA) %>% 
-                                  distinct
-  personPeriod<-daily %>% ungroup() %>% group_by(Id,intervention) %>% 
-                          mutate(periodClick=sum(countClick),
-                                 periodEngage=sum(countEngage)) %>% 
-                          select(Id,ever_engage,intervention,personClick,personEngage,meanDailyClickPeriod,meanDailyEngagePeriod,
-                                 meanDailyMVPAPeriod,medianDailyMVPAPeriod) %>% distinct
-```
 
 ## Engagement and clicks:
 
@@ -66,10 +55,11 @@ Generate person-level and person-period-level datasets. For both, calculate tota
 #### Total engagements per day, by date
 Total clicks and engagements, when summed across participants, appear somewhat cyclical, though the value and the amplitude both appear to diminish over time.
 ```{r,echo=FALSE}
-  totalEngageClickDay<-dailyForPlots %>% group_by(date) %>% mutate(sumClicks=sum(countClick),
-                                                              sumEngage=sum(countEngage)) %>% distinct()
+  totalEngageClickDay<-dailyForPlots %>% group_by(date) %>% mutate(sumClicks=sum(dayCountClickAny),
+                                                                   sumEngage=sum(dayCountEngageAny)) %>%       
+                                         distinct()
   
-  totalEngageDay<-ggplot(totalEngageClickDay,aes(x=date,y=sumEngage)) + 
+  totalEngageDay<-ggplot(totalEngageClickDay,aes(x=as.Date(date),y=sumEngage)) + 
                       geom_point(color="#619CFF") + 
                       theme_classic() +
                       geom_smooth(color="#619CFF") +
@@ -80,8 +70,10 @@ Total clicks and engagements, when summed across participants, appear somewhat c
                             axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
                             axis.title.y = element_text(face="bold"),
                             plot.title = element_text(face="bold",
-                                                      hjust=0.5))
-  totalClickDay<-ggplot(totalEngageClickDay,aes(x=date,y=sumClicks)) + 
+                                                      hjust=0.5)) +
+                    ylim(0,max(totalEngageClickDay$sumClicks))
+  
+  totalClickDay<-ggplot(totalEngageClickDay,aes(x=as.Date(date),y=sumClicks)) + 
                       geom_point(color="#FFC833") + 
                       theme_classic() +
                       geom_smooth(color="#FFC833") +
@@ -92,7 +84,9 @@ Total clicks and engagements, when summed across participants, appear somewhat c
                             axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
                             axis.title.y = element_text(face="bold"),
                             plot.title = element_text(face="bold",
-                                                      hjust=0.5))
+                                                      hjust=0.5))+
+                      ylim(0,max(totalEngageClickDay$sumClicks))
+  
   grid.arrange(totalClickDay,totalEngageDay,ncol=1)
 ```
 ### Clicks and engagement per participant-day
@@ -100,7 +94,7 @@ Total clicks and engagements, when summed across participants, appear somewhat c
 #### Distribution of clicks and engagement per participant and day
 The vast majority of participant-days had 0 clicks and 0 engagement. 
 ```{r,echo=FALSE}
-  countEngagePlot<-ggplot(dailyForPlots,aes(x=countEngage)) + 
+  countEngagePlot<-ggplot(dailyForPlots,aes(x=dayCountEngageAny)) + 
                           geom_bar(fill="#619CFF") + 
                           theme_classic() +
                           labs(x="Number of engagements per day",
@@ -110,7 +104,7 @@ The vast majority of participant-days had 0 clicks and 0 engagement.
                                 axis.title.y = element_text(face="bold"),
                                 plot.title = element_text(face="bold",
                                                           hjust=0.5))
-  countClickPlot<-ggplot(dailyForPlots,aes(x=countClick)) + 
+  countClickPlot<-ggplot(dailyForPlots,aes(x=dayCountClickAny)) + 
                          geom_bar(fill="#FFC833") + 
                          theme_classic() +
                          labs(x="Number of clicks per day",
@@ -125,13 +119,36 @@ The vast majority of participant-days had 0 clicks and 0 engagement.
 
 #### Distribution of clicks and engagement per participant (across the entire study period)
 Can participants be grouped based on how often they engaged over the study period?
-
+```{r,echo=FALSE}
+  person<-dailyForPlots %>% ungroup() %>% select(Id,personCountClickAny,personCountEngageAny) %>% distinct
+  countEngageDayPlot<-ggplot(person,aes(x=personCountEngageAny)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Number of engagements per day",
+                               y="Frequency",
+                               title="Distribution:\nEngagements per participant-day") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  countClickDayPlot<-ggplot(person,aes(x=personCountClickAny)) + 
+                         geom_bar(fill="#FFC833") + 
+                         theme_classic() +
+                         labs(x="Number of clicks per day",
+                               y="Frequency",
+                               title="Distribution:\nClicks per participant-day") +
+                         theme(axis.title.x = element_text(face="bold"),
+                               axis.title.y = element_text(face="bold"),
+                               plot.title = element_text(face="bold",
+                                                         hjust=0.5)) 
+  grid.arrange(countClickDayPlot,countEngageDayPlot,ncol=2)
+```
 
 
 #### Number of clicks and engagement per participant and day over time
 It is hard to make out any interesting patterns because there are so many participant-days with 0 engagement and/or clicks (as observed above)
 ```{r,echo=FALSE}
-  engageDay<-ggplot(dailyForPlots,aes(x=date,y=countEngage)) + 
+  engageDay<-ggplot(dailyForPlots,aes(x=date,y=dayCountEngageAny)) + 
                     geom_jitter(alpha=0.25,color="#619CFF") +
                     theme_classic() +
                     labs(x="Date",
@@ -142,7 +159,7 @@ It is hard to make out any interesting patterns because there are so many partic
                           axis.title.y = element_text(face="bold"),
                           plot.title = element_text(face="bold",
                                                     hjust=0.5))
-  clickDay<-ggplot(dailyForPlots,aes(x=date,y=countClick)) + 
+  clickDay<-ggplot(dailyForPlots,aes(x=date,y=dayCountClickAny)) + 
                     geom_jitter(alpha=0.25,color="#FFC833") + 
                     theme_classic() +
                     labs(x="Date",
@@ -153,22 +170,22 @@ It is hard to make out any interesting patterns because there are so many partic
                           axis.title.y = element_text(face="bold"),
                           plot.title = element_text(face="bold",
                                                     hjust=0.5))
-    grid.arrange(clickDay,engageDay,ncol=2)
+  grid.arrange(clickDay,engageDay,ncol=2)
 ```
 
 #### Mean daily clicks and engagement over time
 It is easier to see trends in daily clicks and engagement over time using mean clicks and engagement per day (calculated by taking the mean of both countClick (count of clicks per person per day) and countEngage (count of engagement per person per day) across all participants for each day in the study period. Please note, we cannot use median, as the median clicks and median engagement is 0 everyday. 
 ```{r,echo=FALSE}
   meanEngageClickDay<-dailyForPlots %>% group_by(date) %>% 
-                                            mutate(meanDayClick=mean(countClick),
-                                                   meanDayEngage=mean(countEngage)) %>%
+                                            mutate(meanDayClick=mean(dayCountClickAny),
+                                                   meanDayEngage=mean(dayCountEngageAny)) %>%
                                             select(date,meanDayClick,meanDayEngage,intervention) %>% distinct()
 # confirm the calculation  above -- sum the total engagements or clicks per day (across all participants) and then divide by the number of participants 
   # engagement 
-    sum(dailyForPlots[dailyForPlots$date=="2021-10-18",]$countEngage)/length(dailyForPlots[dailyForPlots$date=="2021-10-18",]$Id) == 
+    sum(dailyForPlots[dailyForPlots$date=="2021-10-18",]$dayCountEngageAny)/length(dailyForPlots[dailyForPlots$date=="2021-10-18",]$Id) == 
     meanEngageClickDay[meanEngageClickDay$date=="2021-10-18",]$meanDayEngage
   # clicks
-    sum(dailyForPlots[dailyForPlots$date=="2021-10-18",]$countClick)/length(dailyForPlots[dailyForPlots$date=="2021-10-18",]$Id) == 
+    sum(dailyForPlots[dailyForPlots$date=="2021-10-18",]$dayCountClickAny)/length(dailyForPlots[dailyForPlots$date=="2021-10-18",]$Id) == 
     meanEngageClickDay[meanEngageClickDay$date=="2021-10-18",]$meanDayClick
                       
   meanEngageDay<-ggplot(meanEngageClickDay,aes(x=date,y=meanDayEngage)) + 
@@ -201,7 +218,7 @@ It is easier to see trends in daily clicks and engagement over time using mean c
 
 <!-- #### Clicks and engagement over time, by intervention period -- Excluding for now -->
 ```{r,echo=FALSE,include=FALSE}
-  engageDayPeriod<-ggplot(dailyForPlots,aes(x=date,y=countEngage,color=intervention,group=intervention)) + 
+  engageDayPeriod<-ggplot(dailyForPlots,aes(x=date,y=dayCountEngageAny,color=intervention,group=intervention)) + 
                     geom_jitter(alpha=0.25) + 
                     scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
                     theme_classic() +
@@ -213,7 +230,7 @@ It is easier to see trends in daily clicks and engagement over time using mean c
                           axis.title.y = element_text(face="bold"),
                           plot.title = element_text(face="bold",
                                                     hjust=0.5))
-  clickDayPeriod<-ggplot(dailyForPlots,aes(x=date,y=countClick,color=intervention,group=intervention)) + 
+  clickDayPeriod<-ggplot(dailyForPlots,aes(x=date,y=dayCountClickAny,color=intervention,group=intervention)) + 
                     geom_jitter(alpha=0.25) + 
                     scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
                     theme_classic() +
@@ -225,13 +242,13 @@ It is easier to see trends in daily clicks and engagement over time using mean c
                           axis.title.y = element_text(face="bold"),
                           plot.title = element_text(face="bold",
                                                     hjust=0.5))
-    grid.arrange(clickDayPeriod,engageDayPeriod,ncol=1)
+  grid.arrange(clickDayPeriod,engageDayPeriod,ncol=1)
 ```
 
 #### Clicks and engagement by weekday in the pre, intervention and post intervention period
 I am interested in assessing if daily clicks and/or engagement (at the participant level) varies by day of the week. It looks like clicks and engagement are higher during the work week, particularly during the intervention period, but it is difficult to tell because there are also more Mondays, Tuesday, etc. during this period (since it is much longer). 
 ```{r,echo=FALSE}
-  engageWeekdayPlot<-ggplot(dailyForPlots,aes(x=weekday,y=countEngage)) + 
+  engageWeekdayPlot<-ggplot(dailyForPlots,aes(x=weekday,y=dayCountEngageAny)) + 
                             facet_wrap(~intervention,ncol=3) +
                             geom_jitter(colour="#619CFF",alpha=0.25) + 
                             theme_classic() +
@@ -243,7 +260,7 @@ I am interested in assessing if daily clicks and/or engagement (at the participa
                                   axis.title.y = element_text(face="bold"),
                                   plot.title = element_text(face="bold",
                                                             hjust=0.5))
-  clickWeekdayPlot<-ggplot(dailyForPlots,aes(x=weekday,y=countClick)) + 
+  clickWeekdayPlot<-ggplot(dailyForPlots,aes(x=weekday,y=dayCountClickAny)) + 
                            facet_wrap(~intervention,ncol=3) +
                            geom_jitter(colour="#FFC833",alpha=0.25) + 
                            theme_classic() +
@@ -262,8 +279,8 @@ I am interested in assessing if daily clicks and/or engagement (at the participa
 Mean clicks and engagement is calculated by taking the mean daily click and/or engagement count across all participants, separately for each weekday, in each of the pre-intervention, intervention and post-intervention periods. It appears that the mean clicks and mean engagement by day of the week differ between the pre-intervention, intervention and post-intervention periods, but trends look similar for both clicks and engagements. 
 ```{r,echo=FALSE}
   meanEngage<-dailyForPlots %>% group_by(weekday,intervention) %>% 
-                                mutate(meanWeekdayClick=mean(countClick),
-                                       meanWeekdayEngage=mean(countEngage),
+                                mutate(meanWeekdayClick=mean(dayCountClickAny),
+                                       meanWeekdayEngage=mean(dayCountEngageAny),
                                        n_dates=length(unique(date))) %>%
                                 select(weekday,intervention,meanWeekdayClick,meanWeekdayEngage,n_dates) %>% distinct()
                       
@@ -687,11 +704,11 @@ Participants who never enagaged with app content recorded an average of 13 minut
   tab_model(linearEverEngage)
 ```
 
-#### (d) only independent variable is countClicks
+#### (d) only independent variable is dayCountClickAnys
 
 Every one click was associated with a 2 minute increase in MVPA on that date (statistically signiciant)
 ```{r}
-  linearCountClick<-lm(totalMVPA~countClick,data=dailyForPlots)
+  linearCountClick<-lm(totalMVPA~dayCountClickAny,data=dailyForPlots)
   tab_model(linearCountClick)
 ```
 
@@ -699,7 +716,7 @@ Every one click was associated with a 2 minute increase in MVPA on that date (st
 
 Every one engagement was associated with a <1.5 minute increase in MVPA on that date; however, the relationship was not statistically significant
 ```{r}
-  linearCountEngage<-lm(totalMVPA~countEngage,data=dailyForPlots)
+  linearCountEngage<-lm(totalMVPA~dayCountEngageAny,data=dailyForPlots)
   tab_model(linearCountEngage)
 ```
 
@@ -710,6 +727,6 @@ Every one click was associated with a 1.7 minute increase in MVPA on that date (
 We can't do the interaction between ever_engage and intervention while including clicks in the model because those variables are collinear. Need to think about stratifying the model by engagers probably. 
 
 ```{r}
-  linearClicksInt<-lm(totalMVPA ~ countClick + intervention + countClick + ever_engage + intervention*University, data=dailyForPlots)
+  linearClicksInt<-lm(totalMVPA ~ dayCountClickAny + intervention + ever_engage + intervention*University, data=dailyForPlots)
   tab_model(linearClicksInt)
 ```

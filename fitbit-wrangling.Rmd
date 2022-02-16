@@ -938,10 +938,15 @@ Remove participant-days where totalMVPA is na
 
 Generate new clickInt and engageInt variables that are binary flags for clicks and engagement with intervention content specifically
 ```{r}
-  daily$clickInt<-ifelse(daily$click==1 & daily$intervention_content=="yes",1,
-                        ifelse(daily$intervention_content=="no"|is.na(daily$intervention_content),0,NA))
-  daily$engageInt<-ifelse(daily$engage==1 & daily$intervention_content=="yes",1,
-                        ifelse(daily$intervention_content=="no"|is.na(daily$intervention_content),0,NA))
+# set click and engage to 0 if click is NA
+  daily$click<-ifelse(is.na(daily$click),0,daily$click)
+  daily$engage<-ifelse(is.na(daily$engage),0,daily$engage)
+  
+# create new dummy variables for clicks/engagement with intervention content
+  daily$clickInt<-ifelse(daily$click==1 & daily$intervention_content=="yes" & !is.na(daily$intervention_content),1,0)
+  summary(as.factor(daily$clickInt)) # there are two clicks where the title and intervention_content are unknown but click == 1
+  daily$engageInt<-ifelse(daily$engage==1 & daily$intervention_content=="yes",1,0)
+  summary(as.factor(daily$engageInt))
 ```
 
 #### Summarize clicks and engagement: Counts of clicks, engagement over different time periods (overall, by intervention period, by day)
@@ -950,12 +955,10 @@ Generate new clickInt and engageInt variables that are binary flags for clicks a
 (3) per participant (personCountAny, personEngageAny, personEngageInt, personCountInt): group by Id, sum the binary/dummy variable for clicks, engagements, clicks on intervention content, and engagement on intervention content to get counts per intervention period
 ```{r}
 # set click and engage to 0 if na
-  daily$click<-ifelse(is.na(daily$click),0,daily$click)
-  daily$engage<-ifelse(is.na(daily$engage),0,daily$engage)
   daily<-daily %>% group_by(Id,date) %>% mutate(dayCountEngageAny=sum(engage),
                                                 dayCountClickAny=sum(click),
                                                 dayCountEngageInt=sum(engageInt),
-                                                dayCountClickInt=(clickInt)) %>%
+                                                dayCountClickInt=sum(clickInt)) %>%
                    ungroup() %>% group_by(Id,intervention) %>% mutate(periodCountClickAny=sum(click),
                                                                       periodCountEngageAny=sum(engage),
                                                                       periodCountClickInt=sum(clickInt),
@@ -986,5 +989,8 @@ Calculate average daily clicks and engagements per participant, and per particip
 ## Write CSV file for TOP
 
 ```{r}
-write_csv("daily-TOP-CSEP.csv")
+  daily<-daily %>% select(-weekNum)
+  daily$pubdate<-as.character(daily$pubdate)
+  daily[is.na(daily)]<-""
+  write.csv(daily,"daily-TOP-CSEP.csv",row.names = FALSE)
 ```

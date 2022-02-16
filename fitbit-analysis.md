@@ -15,36 +15,46 @@ This script contains preliminary figures and data analysis for Fitbit data.
 
 
 ```r
-daily <- read_csv("daily-TOP-CSEP.csv")
+daily <- read.csv("daily-TOP-CSEP.csv")
+str(daily$date)
 ```
 
 ```
-## Rows: 4168 Columns: 56
+##  chr [1:4168] "2021-10-18" "2021-10-19" "2021-10-20" "2021-10-21" ...
 ```
 
-```
-## ── Column specification ────────────────────────────────────────────────────────
-## Delimiter: ","
-## chr  (20): Id, intervention, email, ever_engage, Gender, Ethnicity, Universi...
-## dbl  (33): TotalCalories, SedentaryMinutes, LightlyActiveMinutes, FairlyActi...
-## date  (3): date, pubdate, weekStart
-```
+Make sure that the intervention variable and the weekday variables are formatted as factors where the intervention periods and weekdays are ordered correctly (pre, intervention, post; monday, tuesday, etc.)
 
-```
-## 
-## ℹ Use `spec()` to retrieve the full column specification for this data.
-## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
-```
-
-Create person-day-level and person-level datasets for plots. Currently, the "daily" dataframe has one row per person-day-article, so if someone engages with two different articles, they have two rows in the dataframe. I want a maximum of one row per person per day for data exploration. 
 
 ```r
-  dailyForPlots<-daily[!is.na(daily$totalMVPA),] %>% select(-title,-intervention_content,-featured_content,-pubdate,-weekofpublish,
-                                                            -type,-click,-engage)
-  dailyForPlots<-distinct(dailyForPlots)
-  person<-daily %>% ungroup() %>% select(Id,ever_engage,meanDailyClick,meanDailyEngage,meanDailyMVPA,medianDailyMVPA) %>% distinct
-  personPeriod<-daily %>% ungroup() %>% select(Id,ever_engage,intervention,meanDailyClickPeriod,meanDailyEngagePeriod,meanDailyMVPAPeriod,medianDailyMVPAPeriod) %>% distinct
+  daily$weekday<-factor(daily$weekday,
+                        levels=c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"))
+  daily$intervention<-factor(daily$intervention,levels=c("pre","intervention","post"))
+  daily$date<-as.Date(daily$date)
+  str(daily$weekday)
 ```
+
+```
+##  Factor w/ 7 levels "Monday","Tuesday",..: 1 2 3 4 5 6 7 1 2 3 ...
+```
+
+```r
+  str(daily$intervention)
+```
+
+```
+##  Factor w/ 3 levels "pre","intervention",..: 1 1 1 1 1 1 1 2 2 2 ...
+```
+
+Create person-day-level for plots. Currently, the "daily" dataframe has one row per person-day-article, so if someone engages with two different articles, they have two rows in the dataframe. I want a maximum of one row per person per day for data exploration. 
+
+```r
+  dailyForPlots<-daily[!is.na(daily$totalMVPA),] %>% select(-title,-intervention_content,-featured_content,
+                                                            -pubdate,-weekofpublish,
+                                                            -type,-click,-engage,-clickInt,-engageInt)
+  dailyForPlots<-distinct(dailyForPlots)
+```
+
 
 ## Engagement and clicks:
 
@@ -58,18 +68,21 @@ Total clicks and engagements, when summed across participants, appear somewhat c
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
-<!-- #### Mean total engagements and clicks per weekday and intervention period -->
-<!-- Mean total clicks and engagement, calculated as the sum of clicks/engagement for a given weekday in each of the pre-intervention, intervention and post-intervention periods for all participants, divided by the number of dates reflected in the calculation. This is to make the three periods comparable, even though the pre- and post- periods are only ~7 days each.  -->
-
+![](fitbit-analysis_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
 ### Clicks and engagement per participant-day
 
 #### Distribution of clicks and engagement per participant and day
 The vast majority of participant-days had 0 clicks and 0 engagement. 
 ![](fitbit-analysis_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+
+#### Distribution of clicks and engagement per participant (across the entire study period)
+Can participants be grouped based on how often they engaged over the study period?
+![](fitbit-analysis_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+
+
 #### Number of clicks and engagement per participant and day over time
 It is hard to make out any interesting patterns because there are so many participant-days with 0 engagement and/or clicks (as observed above)
-![](fitbit-analysis_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
 #### Mean daily clicks and engagement over time
 It is easier to see trends in daily clicks and engagement over time using mean clicks and engagement per day (calculated by taking the mean of both countClick (count of clicks per person per day) and countEngage (count of engagement per person per day) across all participants for each day in the study period. Please note, we cannot use median, as the median clicks and median engagement is 0 everyday. 
@@ -87,18 +100,18 @@ It is easier to see trends in daily clicks and engagement over time using mean c
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
 <!-- #### Clicks and engagement over time, by intervention period -- Excluding for now -->
 
 
 #### Clicks and engagement by weekday in the pre, intervention and post intervention period
 I am interested in assessing if daily clicks and/or engagement (at the participant level) varies by day of the week. It looks like clicks and engagement are higher during the work week, particularly during the intervention period, but it is difficult to tell because there are also more Mondays, Tuesday, etc. during this period (since it is much longer). 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
 #### Mean clicks and engagement, by weekday and period
 Mean clicks and engagement is calculated by taking the mean daily click and/or engagement count across all participants, separately for each weekday, in each of the pre-intervention, intervention and post-intervention periods. It appears that the mean clicks and mean engagement by day of the week differ between the pre-intervention, intervention and post-intervention periods, but trends look similar for both clicks and engagements. 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 ## MVPA
 
@@ -110,7 +123,7 @@ First, lets assess the distribution of MVPA across participant-days. Similar to 
 ##    0.00    0.00   29.00   40.42   58.00  498.00
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 ### Plot of minutes of MVPA per day over time -- overall and comparing engagers and non-engagers
 Next, lets assess how daily MVPA varies over time. There is no obvious trend over time, though there is a slight bow to the loess line that appears to correspond (roughly) to the intervention period. 
@@ -119,7 +132,7 @@ Next, lets assess how daily MVPA varies over time. There is no obvious trend ove
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
 
 Interestingly, this "bowing" of the loess curve appears to be driven by participants that engaged with the app content (at least once); a light downward trend is observed among non-engagers
 
@@ -127,7 +140,7 @@ Interestingly, this "bowing" of the loess curve appears to be driven by particip
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 #### Minutes of MVPA per day and participant - Queen's vs. UBC
 Overall, MVPA is slightly higher at Queens; MVPA is lower at UBC and dips slightly during the intervention period. 
@@ -136,7 +149,7 @@ Overall, MVPA is slightly higher at Queens; MVPA is lower at UBC and dips slight
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
 The relationship between MVPA and campus also differs when you stratify by engagers and non-engagers. Among engagers, participant's at Queen's were more active, and there appears to be a slightly increase in MVPA during the intervention period (as seen above), while engagers at UBC exhibited a dip in daily MVPA during the middle of the intervention period (left panel). Converely, non-engagers at UBC were more active than non-engagers at Queen's (right), though daily MVPA remained largely stable at both campuses over time. 
 
@@ -144,7 +157,7 @@ The relationship between MVPA and campus also differs when you stratify by engag
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 #### Minutes of MVPA per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
 Intervention content was released on Mondays and Wednesdays. The following plot would suggest no major difference in daily MVPA on Monday/Wednesday vs. other days of the week. 
@@ -153,7 +166,7 @@ Intervention content was released on Mondays and Wednesdays. The following plot 
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
 It doesn't look like Mondays/Wednesdays have higher MVPA for either group (again, we see the non-engagers MVPA level remained more stable over time compared to engagers)
 
@@ -161,7 +174,7 @@ It doesn't look like Mondays/Wednesdays have higher MVPA for either group (again
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
 
 #### Trend: Minutes of MVPA per day in the pre-intervention, intervention and post-intervention period
 It appears that daily MVPA "ramped-up" during the pre-intervention period and was sustained throughout the intervention period. 
@@ -178,7 +191,7 @@ It appears that daily MVPA "ramped-up" during the pre-intervention period and wa
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 We see a similar trend among the non-engagers; however, they appear to have ramped up to a slightly lower level of daily MVPA. This may suggest that at least part of the intervention effect is the fitbit itself, since even non-engagers saw increases in MVPA (albeit lower), and these increases were observed before the start of the intervention period. 
 
@@ -194,11 +207,11 @@ We see a similar trend among the non-engagers; however, they appear to have ramp
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
 
 #### Daily minutes of MVPA, faceted by week number
 Another way to visualize changes over time
-![](fitbit-analysis_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
 
 #### Mean and median daily MVPA, by date
 Mean daily MVPA per day. Trend looks as described previously; daily MVPA ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
@@ -207,7 +220,7 @@ Mean daily MVPA per day. Trend looks as described previously; daily MVPA ramps u
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
 
 Similar trends are observed among engagers and non-engagers; however, mean MVPA for non-engagers are more impacted by outlying values, since there were so few non-engagers (n=7). 
 
@@ -215,7 +228,7 @@ Similar trends are observed among engagers and non-engagers; however, mean MVPA 
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
 
 Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of MVPA per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily MVPA exhibits a cyclical trend as well. 
 
@@ -225,7 +238,7 @@ Median MVPA per day. Similar trend, through the downward trajectory appears more
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
 
 Daily median MVPA looks to ramp up to the same median daily MVPA by the end of the pre-intervention period, and start the intervention period at approximately the same level of daily MVPA. However, the non-engagers exhibit a more dramatic decrease throughput the intervention period, and end at a lower median MVPA at the end of the intervention period/into the post-period. 
 
@@ -233,14 +246,14 @@ Daily median MVPA looks to ramp up to the same median daily MVPA by the end of t
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
 
 #### Mean daily MVPA, by weekday and intervention period
 Trends in the pre- and post- periods must be interpreted with caution, as there is only 1 (or 2) dates contributing to the estimates for each weekday in these two periods. As such, both are ~ the trend over time (with the exception of Sunday in the post-period, which is based on two days of data)
-![](fitbit-analysis_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
 
 There is a slightly different trend in mean daily MVPA among engagers and non-engagers (during the intervention period in particular). Plot is not working when I knit the file so I will exclude for now.
-![](fitbit-analysis_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-27-1.png)<!-- -->
 
 ## Models
 
@@ -263,7 +276,7 @@ dailyForPlots <- dailyForPlots %>%
 <table style="border-collapse:collapse; border:none;">
 <tr>
 <th style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm;  text-align:left; ">&nbsp;</th>
-<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">total MVPA</th>
+<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">totalMVPA</th>
 </tr>
 <tr>
 <td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  text-align:left; ">Predictors</td>
@@ -342,7 +355,7 @@ Participants who never enagaged with app content recorded an average of 13 minut
 <table style="border-collapse:collapse; border:none;">
 <tr>
 <th style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm;  text-align:left; ">&nbsp;</th>
-<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">total MVPA</th>
+<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">totalMVPA</th>
 </tr>
 <tr>
 <td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  text-align:left; ">Predictors</td>
@@ -373,19 +386,19 @@ Participants who never enagaged with app content recorded an average of 13 minut
 
 </table>
 
-#### (d) only independent variable is countClicks
+#### (d) only independent variable is dayCountClickAnys
 
 Every one click was associated with a 2 minute increase in MVPA on that date (statistically signiciant)
 
 ```r
-  linearCountClick<-lm(totalMVPA~countClick,data=dailyForPlots)
+  linearCountClick<-lm(totalMVPA~dayCountClickAny,data=dailyForPlots)
   tab_model(linearCountClick)
 ```
 
 <table style="border-collapse:collapse; border:none;">
 <tr>
 <th style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm;  text-align:left; ">&nbsp;</th>
-<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">total MVPA</th>
+<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">totalMVPA</th>
 </tr>
 <tr>
 <td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  text-align:left; ">Predictors</td>
@@ -400,7 +413,7 @@ Every one click was associated with a 2 minute increase in MVPA on that date (st
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  "><strong>&lt;0.001</strong></td>
 </tr>
 <tr>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">countClick</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">dayCountClickAny</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">2.06</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">0.37&nbsp;&ndash;&nbsp;3.75</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  "><strong>0.017</strong></td>
@@ -421,14 +434,14 @@ Every one click was associated with a 2 minute increase in MVPA on that date (st
 Every one engagement was associated with a <1.5 minute increase in MVPA on that date; however, the relationship was not statistically significant
 
 ```r
-  linearCountEngage<-lm(totalMVPA~countEngage,data=dailyForPlots)
+  linearCountEngage<-lm(totalMVPA~dayCountEngageAny,data=dailyForPlots)
   tab_model(linearCountEngage)
 ```
 
 <table style="border-collapse:collapse; border:none;">
 <tr>
 <th style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm;  text-align:left; ">&nbsp;</th>
-<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">total MVPA</th>
+<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">totalMVPA</th>
 </tr>
 <tr>
 <td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  text-align:left; ">Predictors</td>
@@ -443,7 +456,7 @@ Every one engagement was associated with a <1.5 minute increase in MVPA on that 
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  "><strong>&lt;0.001</strong></td>
 </tr>
 <tr>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">countEngage</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">dayCountEngageAny</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">1.30</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">&#45;0.97&nbsp;&ndash;&nbsp;3.56</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">0.262</td>
@@ -467,14 +480,14 @@ We can't do the interaction between ever_engage and intervention while including
 
 
 ```r
-  linearClicksInt<-lm(totalMVPA ~ countClick + intervention + countClick + ever_engage + intervention*University, data=dailyForPlots)
+  linearClicksInt<-lm(totalMVPA ~ dayCountClickAny + intervention + ever_engage + intervention*University, data=dailyForPlots)
   tab_model(linearClicksInt)
 ```
 
 <table style="border-collapse:collapse; border:none;">
 <tr>
 <th style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm;  text-align:left; ">&nbsp;</th>
-<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">total MVPA</th>
+<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">totalMVPA</th>
 </tr>
 <tr>
 <td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  text-align:left; ">Predictors</td>
@@ -489,7 +502,7 @@ We can't do the interaction between ever_engage and intervention while including
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  "><strong>&lt;0.001</strong></td>
 </tr>
 <tr>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">countClick</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">dayCountClickAny</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">1.32</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">&#45;0.36&nbsp;&ndash;&nbsp;3.00</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">0.122</td>

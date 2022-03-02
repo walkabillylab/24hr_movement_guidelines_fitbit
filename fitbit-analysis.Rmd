@@ -47,6 +47,7 @@ Create person-day-level for plots. Currently, the "daily" dataframe has one row 
   dailyForPlots<-distinct(dailyForPlots)
 ```
 
+# Exploratory Analysis
 
 ## Engagement and clicks:
 
@@ -148,7 +149,7 @@ Can participants be grouped based on how often they engaged over the study perio
 #### Number of clicks and engagement per participant and day over time
 It is hard to make out any interesting patterns because there are so many participant-days with 0 engagement and/or clicks (as observed above)
 ```{r,echo=FALSE}
-  engageDay<-ggplot(dailyForPlots,aes(x=date,y=dayCountEngageAny)) + 
+  engageDay<-ggplot(dailyForPlots,aes(x=date,y=dayCountEngageAny)) +
                     geom_jitter(alpha=0.25,color="#619CFF") +
                     theme_classic() +
                     labs(x="Date",
@@ -159,8 +160,8 @@ It is hard to make out any interesting patterns because there are so many partic
                           axis.title.y = element_text(face="bold"),
                           plot.title = element_text(face="bold",
                                                     hjust=0.5))
-  clickDay<-ggplot(dailyForPlots,aes(x=date,y=dayCountClickAny)) + 
-                    geom_jitter(alpha=0.25,color="#FFC833") + 
+  clickDay<-ggplot(dailyForPlots,aes(x=date,y=dayCountClickAny)) +
+                    geom_jitter(alpha=0.25,color="#FFC833") +
                     theme_classic() +
                     labs(x="Date",
                          y="Number of daily clicks",
@@ -218,31 +219,31 @@ It is easier to see trends in daily clicks and engagement over time using mean c
 
 <!-- #### Clicks and engagement over time, by intervention period -- Excluding for now -->
 ```{r,echo=FALSE,include=FALSE}
-  engageDayPeriod<-ggplot(dailyForPlots,aes(x=date,y=dayCountEngageAny,color=intervention,group=intervention)) + 
-                    geom_jitter(alpha=0.25) + 
-                    scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
-                    theme_classic() +
-                    labs(x="Date",
-                         y="Number of daily engagements",
-                         title="Number of engagements per participant per day") +
-                    theme(axis.title.x = element_text(face="bold"),
-                          axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                          axis.title.y = element_text(face="bold"),
-                          plot.title = element_text(face="bold",
-                                                    hjust=0.5))
-  clickDayPeriod<-ggplot(dailyForPlots,aes(x=date,y=dayCountClickAny,color=intervention,group=intervention)) + 
-                    geom_jitter(alpha=0.25) + 
-                    scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
-                    theme_classic() +
-                    labs(x="Date",
-                         y="Number of daily clicks",
-                         title="Number of clicks per participant per day") +
-                    theme(axis.title.x = element_text(face="bold"),
-                          axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                          axis.title.y = element_text(face="bold"),
-                          plot.title = element_text(face="bold",
-                                                    hjust=0.5))
-  grid.arrange(clickDayPeriod,engageDayPeriod,ncol=1)
+  # engageDayPeriod<-ggplot(dailyForPlots,aes(x=date,y=dayCountEngageAny,color=intervention,group=intervention)) + 
+  #                   geom_jitter(alpha=0.25) + 
+  #                   scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+  #                   theme_classic() +
+  #                   labs(x="Date",
+  #                        y="Number of daily engagements",
+  #                        title="Number of engagements per participant per day") +
+  #                   theme(axis.title.x = element_text(face="bold"),
+  #                         axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                         axis.title.y = element_text(face="bold"),
+  #                         plot.title = element_text(face="bold",
+  #                                                   hjust=0.5))
+  # clickDayPeriod<-ggplot(dailyForPlots,aes(x=date,y=dayCountClickAny,color=intervention,group=intervention)) + 
+  #                   geom_jitter(alpha=0.25) + 
+  #                   scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+  #                   theme_classic() +
+  #                   labs(x="Date",
+  #                        y="Number of daily clicks",
+  #                        title="Number of clicks per participant per day") +
+  #                   theme(axis.title.x = element_text(face="bold"),
+  #                         axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                         axis.title.y = element_text(face="bold"),
+  #                         plot.title = element_text(face="bold",
+  #                                                   hjust=0.5))
+  # grid.arrange(clickDayPeriod,engageDayPeriod,ncol=1)
 ```
 
 #### Clicks and engagement by weekday in the pre, intervention and post intervention period
@@ -361,23 +362,60 @@ Next, lets assess how daily MVPA varies over time. There is no obvious trend ove
                                              hjust=0.5))
   dailyMVPA
 ```
+When you fit a loess curve to each period, daily MVPA appears to "ramp-up" during the pre-intervention period and remain ~stable throughout the intervention period. 
+```{r,echo=FALSE}
+  dailyMVPAint<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA,color=intervention,group=intervention))+
+                       geom_point(alpha=0.25) + 
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                       theme_classic() +
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",]) + 
+                                             labs(x="Date",
+                                                  y="Daily minutes of MVPA",
+                                                  title="Daily minutes of MVPA:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailyMVPAint
+```
 
-Interestingly, this "bowing" of the loess curve appears to be driven by participants that engaged with the app content (at least once); a light downward trend is observed among non-engagers
+Interestingly, this "bowing" of the loess curve appears to be driven by participants that engaged with the app content (at least once); a light downward trend is observed among non-engagers (not pictured)
 ```{r,echo=FALSE,warning=FALSE}
-  dailyMVPA<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA))+
-             geom_point(data=dailyForPlots,aes(x=date,y=totalMVPA,color=intervention),alpha=0.25) + 
-             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
-             facet_wrap(~ever_engage,ncol=2) +
-             theme_classic() +
-             geom_smooth(color="black") + 
-             labs(x="Date",
-                  y="Daily minutes of MVPA",
-                  title="Daily minutes of MVPA, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
-             theme(axis.title.x = element_text(face="bold"),
-                   axis.title.y = element_text(face="bold"),
-                   plot.title = element_text(face="bold",
-                                             hjust=0.5))
-  dailyMVPA
+  # dailyMVPA<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA))+
+  #            geom_point(data=dailyForPlots,aes(x=date,y=totalMVPA,color=intervention),alpha=0.25) + 
+  #            scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+  #            facet_wrap(~ever_engage,ncol=2) +
+  #            theme_classic() +
+  #            geom_smooth(color="black") + 
+  #            labs(x="Date",
+  #                 y="Daily minutes of MVPA",
+  #                 title="Daily minutes of MVPA, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+  #            theme(axis.title.x = element_text(face="bold"),
+  #                  axis.title.y = element_text(face="bold"),
+  #                  plot.title = element_text(face="bold",
+  #                                            hjust=0.5))
+  # dailyMVPA
+```
+
+#### Boxplot of MVPA per day and participant, by week
+```{r,echo=FALSE}
+  boxplotMVPA<-ggplot(dailyForPlots,aes(x=weekStart,y=totalMVPA,fill=intervention))+
+                       geom_jitter(alpha=0.05) +
+                       geom_boxplot() +
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_fill_manual(values=c("#FFC833","#81DA66","#619CFF")) +
+                       theme_classic() +
+                      labs(x="Date",
+                           y="Daily minutes of MVPA",
+                           title="Daily minutes of MVPA:\nBefore, during and after the intervention period")+
+                      theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                            axis.title.x = element_text(face="bold"),
+                            axis.title.y = element_text(face="bold"),
+                            plot.title = element_text(face="bold",hjust=0.5)) 
+  boxplotMVPA
 ```
 
 #### Minutes of MVPA per day and participant - Queen's vs. UBC
@@ -398,22 +436,22 @@ Overall, MVPA is slightly higher at Queens; MVPA is lower at UBC and dips slight
   dailyMVPAcampus
 ```
 
-The relationship between MVPA and campus also differs when you stratify by engagers and non-engagers. Among engagers, participant's at Queen's were more active, and there appears to be a slightly increase in MVPA during the intervention period (as seen above), while engagers at UBC exhibited a dip in daily MVPA during the middle of the intervention period (left panel). Converely, non-engagers at UBC were more active than non-engagers at Queen's (right), though daily MVPA remained largely stable at both campuses over time. 
+The relationship between MVPA and campus also differs when you stratify by engagers and non-engagers. Among engagers, participant's at Queen's were more active, and there appears to be a slightly increase in MVPA during the intervention period (as seen above), while engagers at UBC exhibited a dip in daily MVPA during the middle of the intervention period (left panel). Converely, non-engagers at UBC were more active than non-engagers at Queen's (right), though daily MVPA remained largely stable at both campuses over time. (not pictured)
 ```{r,echo=FALSE}
-  dailyMVPAcampus<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA,color=University))+
-                           scale_color_manual(values=c("#619CFF","#FFC833")) +
-                           geom_point() + 
-                           facet_wrap(~ever_engage,ncol=2) +
-                           theme_classic() +
-                           geom_smooth() + 
-                           labs(x="Date",
-                                y="Daily minutes of MVPA",
-                                title="Daily minutes of MVPA - By Campus") + 
-                            theme(axis.title.x = element_text(face="bold"),
-                                                          axis.title.y = element_text(face="bold"),
-                                                          plot.title = element_text(face="bold",
-                                                                                    hjust=0.5))
-  dailyMVPAcampus
+  # dailyMVPAcampus<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA,color=University))+
+  #                          scale_color_manual(values=c("#619CFF","#FFC833")) +
+  #                          geom_point() + 
+  #                          facet_wrap(~ever_engage,ncol=2) +
+  #                          theme_classic() +
+  #                          geom_smooth() + 
+  #                          labs(x="Date",
+  #                               y="Daily minutes of MVPA",
+  #                               title="Daily minutes of MVPA - By Campus") + 
+  #                           theme(axis.title.x = element_text(face="bold"),
+  #                                                         axis.title.y = element_text(face="bold"),
+  #                                                         plot.title = element_text(face="bold",
+  #                                                                                   hjust=0.5))
+  # dailyMVPAcampus
 ```
 
 #### Minutes of MVPA per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
@@ -434,85 +472,24 @@ Intervention content was released on Mondays and Wednesdays. The following plot 
   dailyMVPAweekday
 ```
 
-It doesn't look like Mondays/Wednesdays have higher MVPA for either group (again, we see the non-engagers MVPA level remained more stable over time compared to engagers)
+It doesn't look like Mondays/Wednesdays have higher MVPA for either group (again, we see the non-engagers MVPA level remained more stable over time compared to engagers) (not pictured)
 ```{r,echo=FALSE}
-  dailyMVPAweekdayEngage<-ggplot(daily,aes(x=date,y=totalMVPA,color=mon_wed))+
-             geom_point() + 
-             facet_wrap(~ever_engage,ncol=2)+
-             scale_color_manual(values=c("#619CFF","#FFC833")) +
-             theme_classic() +
-             geom_smooth() + 
-             labs(x="Date",
-                  y="Daily minutes of MVPA",
-                  title="Daily minutes of MVPA:\nMonday and Wednesday vs. other days") +
-             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                   axis.title.x = element_text(face="bold"),
-                   axis.title.y = element_text(face="bold"),
-                   plot.title = element_text(face="bold",hjust=0.5)) 
-  dailyMVPAweekdayEngage
+  # dailyMVPAweekdayEngage<-ggplot(daily,aes(x=date,y=totalMVPA,color=mon_wed))+
+  #            geom_point() + 
+  #            facet_wrap(~ever_engage,ncol=2)+
+  #            scale_color_manual(values=c("#619CFF","#FFC833")) +
+  #            theme_classic() +
+  #            geom_smooth() + 
+  #            labs(x="Date",
+  #                 y="Daily minutes of MVPA",
+  #                 title="Daily minutes of MVPA:\nMonday and Wednesday vs. other days") +
+  #            theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                  axis.title.x = element_text(face="bold"),
+  #                  axis.title.y = element_text(face="bold"),
+  #                  plot.title = element_text(face="bold",hjust=0.5)) 
+  # dailyMVPAweekdayEngage
 ```
 
-#### Trend: Minutes of MVPA per day in the pre-intervention, intervention and post-intervention period
-It appears that daily MVPA "ramped-up" during the pre-intervention period and was sustained throughout the intervention period. 
-```{r,echo=FALSE}
-  dailyMVPAint<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA,color=intervention,group=intervention))+
-                       geom_point(alpha=0.25) + 
-                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
-                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
-                       theme_classic() +
-                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",]) + 
-                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",]) + 
-                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",]) + 
-                                             labs(x="Date",
-                                                  y="Daily minutes of MVPA",
-                                                  title="Daily minutes of MVPA:\nBefore, during and after the intervention period")+
-                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                                                   axis.title.x = element_text(face="bold"),
-                                                   axis.title.y = element_text(face="bold"),
-                                                   plot.title = element_text(face="bold",hjust=0.5)) 
-  dailyMVPAint
-```
-
-We see a similar trend among the non-engagers; however, they appear to have ramped up to a slightly lower level of daily MVPA. This may suggest that at least part of the intervention effect is the fitbit itself, since even non-engagers saw increases in MVPA (albeit lower), and these increases were observed before the start of the intervention period. 
-```{r,echo=FALSE}
-  dailyMVPAintEngage<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA,color=intervention,group=intervention))+
-                       geom_point(alpha=0.25) + 
-                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
-                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
-                       facet_wrap(~ever_engage,ncol=2)+
-                       theme_classic() +
-                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",]) + 
-                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",]) + 
-                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",]) + 
-                                             labs(x="Date",
-                                                  y="Daily minutes of MVPA",
-                                                  title="Daily minutes of MVPA:\nBefore, during and after the intervention period")+
-                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                                                   axis.title.x = element_text(face="bold"),
-                                                   axis.title.y = element_text(face="bold"),
-                                                   plot.title = element_text(face="bold",hjust=0.5)) 
-  dailyMVPAintEngage
-```
-
-#### Daily minutes of MVPA, faceted by week number
-Another way to visualize changes over time
-```{r,echo=FALSE}
-  dailyMVPAweekday<-ggplot(dailyForPlots,aes(x=weekday,y=totalMVPA,color=intervention))+
-                                             geom_jitter(alpha=0.25) + 
-                                             #scale_color_hue(h = c(180, 300)) +
-                                             #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
-                                             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
-                                             facet_wrap(~weekStart,ncol=4) +
-                                             theme_classic() +
-                                             labs(x="Date",
-                                                  y="Daily minutes of MVPA",
-                                                  title="Daily minutes of MVPA, by week:\nBefore, during and after the intervention period")+
-                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                                                   axis.title.x = element_text(face="bold"),
-                                                   axis.title.y = element_text(face="bold"),
-                                                   plot.title = element_text(face="bold",hjust=0.5)) 
-  dailyMVPAweekday
-```
 
 #### Mean and median daily MVPA, by date
 Mean daily MVPA per day. Trend looks as described previously; daily MVPA ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
@@ -540,31 +517,31 @@ Mean daily MVPA per day. Trend looks as described previously; daily MVPA ramps u
   meanMVPA_datePeriod
 ```
 
-Similar trends are observed among engagers and non-engagers; however, mean MVPA for non-engagers are more impacted by outlying values, since there were so few non-engagers (n=7). 
+<!-- Similar trends are observed among engagers and non-engagers; however, mean MVPA for non-engagers are more impacted by outlying values, since there were so few non-engagers (n=7).  -->
 ```{r,echo=FALSE}
-  meanMVPA_dateEngage<-dailyForPlots %>% ungroup() %>%
-                                         select(Id,date,intervention,totalMVPA,ever_engage) %>%
-                                         group_by(date,ever_engage) %>% 
-                                         mutate(meanMVPA=mean(totalMVPA),
-                                                n=length(Id)) %>% 
-                                         select(-Id,-totalMVPA) %>% distinct()
-  meanMVPA_datePeriodEngage<-ggplot(meanMVPA_dateEngage,aes(x=date,y=meanMVPA,group=intervention,color=intervention))+
-                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
-                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
-                         facet_wrap(~ever_engage,ncol=2)+
-                         geom_point() + 
-                         geom_line() +
-                         theme_classic() +
-                         geom_smooth(data=meanMVPA_dateEngage[meanMVPA_dateEngage$intervention=="intervention",],aes(x=date,y=meanMVPA)) +
-                         labs(x="Date",
-                              y="Mean daily minutes of MVPA",
-                              title="Mean daily minutes of MVPA, by day and engagement status") + 
-                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                              axis.title.x = element_text(face="bold"),
-                              axis.title.y = element_text(face="bold"),
-                              plot.title = element_text(face="bold",hjust=0.5)) +
-                         ylim(0,max(meanMVPA_dateEngage$meanMVPA))
-  meanMVPA_datePeriodEngage
+  # meanMVPA_dateEngage<-dailyForPlots %>% ungroup() %>%
+  #                                        select(Id,date,intervention,totalMVPA,ever_engage) %>%
+  #                                        group_by(date,ever_engage) %>% 
+  #                                        mutate(meanMVPA=mean(totalMVPA),
+  #                                               n=length(Id)) %>% 
+  #                                        select(-Id,-totalMVPA) %>% distinct()
+  # meanMVPA_datePeriodEngage<-ggplot(meanMVPA_dateEngage,aes(x=date,y=meanMVPA,group=intervention,color=intervention))+
+  #                        #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+  #                        scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+  #                        facet_wrap(~ever_engage,ncol=2)+
+  #                        geom_point() + 
+  #                        geom_line() +
+  #                        theme_classic() +
+  #                        geom_smooth(data=meanMVPA_dateEngage[meanMVPA_dateEngage$intervention=="intervention",],aes(x=date,y=meanMVPA)) +
+  #                        labs(x="Date",
+  #                             y="Mean daily minutes of MVPA",
+  #                             title="Mean daily minutes of MVPA, by day and engagement status") + 
+  #                        theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                             axis.title.x = element_text(face="bold"),
+  #                             axis.title.y = element_text(face="bold"),
+  #                             plot.title = element_text(face="bold",hjust=0.5)) +
+  #                        ylim(0,max(meanMVPA_dateEngage$meanMVPA))
+  # meanMVPA_datePeriodEngage
 ```
 
 Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of MVPA per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily MVPA exhibits a cyclical trend as well. 
@@ -594,84 +571,768 @@ Median MVPA per day. Similar trend, through the downward trajectory appears more
   medianMVPA_datePeriod
 ```
 
-Daily median MVPA looks to ramp up to the same median daily MVPA by the end of the pre-intervention period, and start the intervention period at approximately the same level of daily MVPA. However, the non-engagers exhibit a more dramatic decrease throughput the intervention period, and end at a lower median MVPA at the end of the intervention period/into the post-period. 
+<!-- Daily median MVPA looks to ramp up to the same median daily MVPA by the end of the pre-intervention period, and start the intervention period at approximately the same level of daily MVPA. However, the non-engagers exhibit a more dramatic decrease throughput the intervention period, and end at a lower median MVPA at the end of the intervention period/into the post-period.  -->
 ```{r,echo=FALSE}
-  medianMVPA_dateEngage<-dailyForPlots %>% ungroup() %>%
-                                         select(Id,date,intervention,totalMVPA,ever_engage) %>%
-                                         group_by(date,ever_engage) %>% 
-                                         mutate(medianMVPA=median(totalMVPA),
-                                                n=length(Id)) %>% 
-                                         select(-Id,-totalMVPA) %>% distinct()
-  medianMVPA_datePeriodEngage<-ggplot(medianMVPA_dateEngage,aes(x=date,y=medianMVPA,group=intervention,color=intervention))+
-                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
-                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
-                         facet_wrap(~ever_engage,ncol=2)+
-                         geom_point() + 
-                         geom_line() +
-                         theme_classic() +
-                         geom_smooth(data=medianMVPA_dateEngage[medianMVPA_dateEngage$intervention=="intervention",],aes(x=date,y=medianMVPA)) +
-                         labs(x="Date",
-                              y="Median daily minutes of MVPA",
-                              title="Median daily minutes of MVPA, by day and engagement status") + 
-                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                              axis.title.x = element_text(face="bold"),
-                              axis.title.y = element_text(face="bold"),
-                              plot.title = element_text(face="bold",hjust=0.5)) +
-                         ylim(0,max(medianMVPA_dateEngage$medianMVPA))
-  medianMVPA_datePeriodEngage
+  # medianMVPA_dateEngage<-dailyForPlots %>% ungroup() %>%
+  #                                        select(Id,date,intervention,totalMVPA,ever_engage) %>%
+  #                                        group_by(date,ever_engage) %>% 
+  #                                        mutate(medianMVPA=median(totalMVPA),
+  #                                               n=length(Id)) %>% 
+  #                                        select(-Id,-totalMVPA) %>% distinct()
+  # medianMVPA_datePeriodEngage<-ggplot(medianMVPA_dateEngage,aes(x=date,y=medianMVPA,group=intervention,color=intervention))+
+  #                        #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+  #                        scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+  #                        facet_wrap(~ever_engage,ncol=2)+
+  #                        geom_point() + 
+  #                        geom_line() +
+  #                        theme_classic() +
+  #                        geom_smooth(data=medianMVPA_dateEngage[medianMVPA_dateEngage$intervention=="intervention",],aes(x=date,y=medianMVPA)) +
+  #                        labs(x="Date",
+  #                             y="Median daily minutes of MVPA",
+  #                             title="Median daily minutes of MVPA, by day and engagement status") + 
+  #                        theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                             axis.title.x = element_text(face="bold"),
+  #                             axis.title.y = element_text(face="bold"),
+  #                             plot.title = element_text(face="bold",hjust=0.5)) +
+  #                        ylim(0,max(medianMVPA_dateEngage$medianMVPA))
+  # medianMVPA_datePeriodEngage
 ```
 
-#### Mean daily MVPA, by weekday and intervention period
-Trends in the pre- and post- periods must be interpreted with caution, as there is only 1 (or 2) dates contributing to the estimates for each weekday in these two periods. As such, both are ~ the trend over time (with the exception of Sunday in the post-period, which is based on two days of data)
+<!-- #### Mean daily MVPA, by weekday and intervention period
+Trends in the pre- and post- periods must be interpreted with caution, as there is only 1 (or 2) dates contributing to the estimates for each weekday in these two periods. As such, both are ~ the trend over time (with the exception of Sunday in the post-period, which is based on two days of data) -->
 ```{r,echo=FALSE}
-  meanMVPA_weekday<-dailyForPlots %>% ungroup() %>%
-                                      select(Id,weekday,intervention,totalMVPA) %>%
-                                      group_by(intervention,weekday) %>% 
-                                      mutate(meanMVPA=mean(totalMVPA),
-                                             n=length(Id)) %>% select(-totalMVPA,-Id) %>% distinct()
-  meanMVPA_weekdayWide<-pivot_wider(meanMVPA_weekday,id_cols="weekday",names_from="intervention",values_from="meanMVPA")
-  meanMVPA_weekdayPeriod<-ggplot(meanMVPA_weekday,aes(x=weekday,y=meanMVPA,group=intervention,color=intervention))+
+  # meanMVPA_weekday<-dailyForPlots %>% ungroup() %>%
+  #                                     select(Id,weekday,intervention,totalMVPA) %>%
+  #                                     group_by(intervention,weekday) %>% 
+  #                                     mutate(meanMVPA=mean(totalMVPA),
+  #                                            n=length(Id)) %>% select(-totalMVPA,-Id) %>% distinct()
+  # meanMVPA_weekdayWide<-pivot_wider(meanMVPA_weekday,id_cols="weekday",names_from="intervention",values_from="meanMVPA")
+  # meanMVPA_weekdayPeriod<-ggplot(meanMVPA_weekday,aes(x=weekday,y=meanMVPA,group=intervention,color=intervention))+
+  #                        #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+  #                        scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+  #                        geom_point() + 
+  #                        geom_line() +
+  #                        theme_classic() +
+  #                        #geom_smooth() + 
+  #                        labs(x="Date",
+  #                             y="Mean daily minutes of MVPA",
+  #                             title="Mean daily minutes of MVPA, by weekday") +
+  #                        theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                             axis.title.x = element_text(face="bold"),
+  #                             axis.title.y = element_text(face="bold"),
+  #                             plot.title = element_text(face="bold",hjust=0.5)) 
+  # meanMVPA_weekdayPeriod
+```
+
+<!-- There is a slightly different trend in mean daily MVPA among engagers and non-engagers (during the intervention period in particular) (not pictured) -->
+```{r,echo=FALSE}
+  # meanMVPA_engage<-daily %>% ungroup() %>% select(ever_engage,weekday,intervention,totalMVPA) %>%
+  #                                          group_by(intervention,weekday,ever_engage) %>% 
+  #                                          mutate(meanMVPA=mean(totalMVPA))
+  # meanMVPA_engage<-meanMVPA_engage %>% select(-totalMVPA) %>% distinct()
+  # meanMVPA_engagePeriod<-ggplot(meanMVPA_engage,aes(x=weekday,y=meanMVPA,group=intervention,color=intervention))+
+  #                                #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+  #                                facet_wrap(~ever_engage,ncol=2)+
+  #                                scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+  #                                geom_point() + 
+  #                                geom_line() +
+  #                                theme_classic() +
+  #                                #geom_smooth() + 
+  #                                labs(x="Date",
+  #                                     y="Mean daily minutes of MVPA",
+  #                                     title="Mean daily minutes of MVPA, by weekday and engagement status") +
+  #                                theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                                     axis.title.x = element_text(face="bold"),
+  #                                     axis.title.y = element_text(face="bold"),
+  #                                     plot.title = element_text(face="bold",hjust=0.5)) 
+  # meanMVPA_engagePeriod
+```
+
+
+## LPA
+
+#### Distribution/frequency of LPA - with and without including 0s
+First, lets assess the distribution of LPA across participant-days. Similar to the engagement metrics, minutes of LPA is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if LPA (right). 
+```{r,echo=FALSE}
+  summary(dailyForPlots$LightlyActiveMinutes)
+  freqLPA<-ggplot(dailyForPlots,aes(x=LightlyActiveMinutes)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Daily minutes of LPA",
+                               y="Frequency",
+                               title="Minutes of LPA per day and\nparticipant") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  freqLPA_noZeros<-ggplot(dailyForPlots[dailyForPlots$LightlyActiveMinutes>0,],aes(x=LightlyActiveMinutes)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Daily minutes of LPA",
+                               y="Frequency",
+                               title="Minutes of LPA per day and\n participant (excluding values of 0)") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  grid.arrange(freqLPA,freqLPA_noZeros,ncol=2)
+```
+
+### Plot of minutes of LPA per day over time -- overall and comparing engagers and non-engagers
+Next, lets assess how daily LPA varies over time. There is no obvious trend over time, though there is a slight bow to the loess line that appears to correspond (roughly) to the intervention period. 
+```{r,echo=FALSE,warning=FALSE}
+  dailyLPA<-ggplot(dailyForPlots,aes(x=date,y=LightlyActiveMinutes))+
+             geom_point(data=dailyForPlots,aes(x=date,y=LightlyActiveMinutes,color=intervention),alpha=0.25) + 
+             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+             theme_classic() +
+             geom_smooth(color="black") + 
+             labs(x="Date",
+                  y="Daily minutes of LPA",
+                  title="Daily minutes of LPA, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))
+  dailyLPA
+```
+
+Similar to MVPA, LPA ramped up during the pre-intervention period and was sustained throughout the intervention period. 
+```{r,echo=FALSE}
+  dailyLPAint<-ggplot(dailyForPlots,aes(x=date,y=LightlyActiveMinutes,color=intervention,group=intervention))+
+                       geom_point(alpha=0.25) + 
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                       theme_classic() +
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",]) + 
+                                             labs(x="Date",
+                                                  y="Daily minutes of LPA",
+                                                  title="Daily minutes of LPA:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailyLPAint
+```
+
+#### Boxplot of LPA per day and participant, by week
+```{r,echo=FALSE}
+  boxplotLPA<-ggplot(dailyForPlots,aes(x=weekStart,y=LightlyActiveMinutes,fill=intervention))+
+                       geom_jitter(alpha=0.05) +
+                       geom_boxplot() +
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_fill_manual(values=c("#FFC833","#81DA66","#619CFF")) +
+                       theme_classic() +
+                      labs(x="Date",
+                           y="Daily minutes of light physical activity",
+                           title="Daily minutes of light physical activity:\nBefore, during and after the intervention period")+
+                      theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                            axis.title.x = element_text(face="bold"),
+                            axis.title.y = element_text(face="bold"),
+                            plot.title = element_text(face="bold",hjust=0.5)) 
+  boxplotLPA
+```
+
+#### Minutes of LPA per day and participant - Queen's vs. UBC
+Overall, LPA is slightly higher at Queens; LPA is lower at UBC and dips slightly during the intervention period. 
+```{r,echo=FALSE}
+  dailyLPAcampus<-ggplot(dailyForPlots,aes(x=date,y=LightlyActiveMinutes,color=University))+
+                           scale_color_manual(values=c("#619CFF","#FFC833")) +
+                           geom_point() + 
+                           theme_classic() +
+                           geom_smooth() + 
+                           labs(x="Date",
+                                y="Daily minutes of LPA",
+                                title="Daily minutes of LPA - By Campus") + 
+                            theme(axis.title.x = element_text(face="bold"),
+                                                          axis.title.y = element_text(face="bold"),
+                                                          plot.title = element_text(face="bold",
+                                                                                    hjust=0.5))
+  dailyLPAcampus
+```
+
+
+#### Minutes of LPA per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
+Intervention content was released on Mondays and Wednesdays. The following plot would suggest no major difference in daily LPA on Monday/Wednesday vs. other days of the week. 
+```{r,echo=FALSE}
+  dailyLPAweekday<-ggplot(daily,aes(x=date,y=LightlyActiveMinutes,color=mon_wed))+
+             geom_point() + 
+             scale_color_manual(values=c("#619CFF","#FFC833")) +
+             theme_classic() +
+             geom_smooth() + 
+             labs(x="Date",
+                  y="Daily minutes of LPA",
+                  title="Daily minutes of LPA:\nMonday and Wednesday vs. other days") +
+             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                   axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailyLPAweekday
+```
+
+#### Mean and median daily LPA, by date
+Mean daily LPA per day. Trend looks as described previously; daily LPA ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
+```{r,echo=FALSE}
+  meanLPA_date<-dailyForPlots %>% ungroup() %>%
+                                   select(Id,date,intervention,LightlyActiveMinutes) %>%
+                                   group_by(date) %>% 
+                                   mutate(meanLPA=mean(LightlyActiveMinutes),
+                                          n=length(unique(Id))) %>% 
+                                   select(-Id,-LightlyActiveMinutes) %>% distinct()
+  meanLPA_datePeriod<-ggplot(meanLPA_date,aes(x=date,y=meanLPA,group=intervention,color=intervention))+
                          #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
                          scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
                          geom_point() + 
                          geom_line() +
+                         geom_smooth(data=meanLPA_date[meanLPA_date$intervention=="intervention",],aes(x=date,y=meanLPA)) +
                          theme_classic() +
-                         #geom_smooth() + 
                          labs(x="Date",
-                              y="Mean daily minutes of MVPA",
-                              title="Mean daily minutes of MVPA, by weekday") +
+                              y="Mean daily minutes of LPA",
+                              title="Mean daily minutes of LPA, by day") + 
                          theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
                               axis.title.x = element_text(face="bold"),
                               axis.title.y = element_text(face="bold"),
                               plot.title = element_text(face="bold",hjust=0.5)) 
-  meanMVPA_weekdayPeriod
+  meanLPA_datePeriod
 ```
 
-There is a slightly different trend in mean daily MVPA among engagers and non-engagers (during the intervention period in particular). Plot is not working when I knit the file so I will exclude for now.
+Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of LPA per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily LPA exhibits a cyclical trend as well. 
+
+Median LPA per day. Similar trend, through the downward trajectory appears more noticable
 ```{r,echo=FALSE}
-  meanMVPA_engage<-daily %>% ungroup() %>% select(ever_engage,weekday,intervention,totalMVPA) %>%
-                                           group_by(intervention,weekday,ever_engage) %>% 
-                                           mutate(meanMVPA=mean(totalMVPA))
-  meanMVPA_engage<-meanMVPA_engage %>% select(-totalMVPA) %>% distinct()
-  meanMVPA_engagePeriod<-ggplot(meanMVPA_engage,aes(x=weekday,y=meanMVPA,group=intervention,color=intervention))+
-                                 #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
-                                 facet_wrap(~ever_engage,ncol=2)+
-                                 scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
-                                 geom_point() + 
-                                 geom_line() +
-                                 theme_classic() +
-                                 #geom_smooth() + 
-                                 labs(x="Date",
-                                      y="Mean daily minutes of MVPA",
-                                      title="Mean daily minutes of MVPA, by weekday and engagement status") +
-                                 theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
-                                      axis.title.x = element_text(face="bold"),
-                                      axis.title.y = element_text(face="bold"),
-                                      plot.title = element_text(face="bold",hjust=0.5)) 
-  meanMVPA_engagePeriod
+  medianLPA_date<-dailyForPlots %>% ungroup() %>%
+                                   select(Id,date,intervention,LightlyActiveMinutes) %>%
+                                   group_by(date) %>% 
+                                   mutate(medianLPA=median(LightlyActiveMinutes),
+                                          n=length(unique(Id))) %>% 
+                                   select(-Id,-LightlyActiveMinutes) %>% distinct()
+  medianLPA_datePeriod<-ggplot(medianLPA_date,aes(x=date,y=medianLPA,group=intervention,color=intervention))+
+                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                         geom_point() + 
+                         geom_line() +
+                         geom_smooth(data=medianLPA_date[medianLPA_date$intervention=="intervention",],aes(x=date,y=medianLPA)) +
+                         theme_classic() +
+                         labs(x="Date",
+                              y="Median daily minutes of LPA",
+                              title="Median daily minutes of LPA, by day") + 
+                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",hjust=0.5)) 
+  medianLPA_datePeriod
 ```
 
-## Models
+
+## Sedentary Behaviour
+
+#### Distribution/frequency of SB - with and without including 0s
+First, lets assess the distribution of SB across participant-days. Similar to the engagement metrics, minutes of SB is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if SB (right). 
+```{r,echo=FALSE}
+  summary(dailyForPlots$SedentaryMinutes)
+  freqSB<-ggplot(dailyForPlots,aes(x=SedentaryMinutes)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Daily minutes of SB",
+                               y="Frequency",
+                               title="Minutes of SB per day and\nparticipant") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  freqSB_noZeros<-ggplot(dailyForPlots[dailyForPlots$SedentaryMinutes<1440,],aes(x=SedentaryMinutes)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Daily minutes of SB",
+                               y="Frequency",
+                               title="Minutes of SB per day and\n participant (excluding values of 1440)") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  grid.arrange(freqSB,freqSB_noZeros,ncol=2)
+```
+
+### Plot of minutes of SB per day over time -- overall and comparing engagers and non-engagers
+Next, lets assess how daily SB varies over time. There is no obvious trend over time, though there is a slight bow to the loess line that appears to correspond (roughly) to the intervention period. 
+```{r,echo=FALSE,warning=FALSE}
+  dailySB<-ggplot(dailyForPlots,aes(x=date,y=SedentaryMinutes))+
+             geom_point(data=dailyForPlots,aes(x=date,y=SedentaryMinutes,color=intervention),alpha=0.25) + 
+             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+             theme_classic() +
+             geom_smooth(color="black") + 
+             labs(x="Date",
+                  y="Daily minutes of SB",
+                  title="Daily minutes of SB, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))
+  dailySB
+```
+
+Similar to MVPA, SB ramped up during the pre-intervention period and was sustained throughout the intervention period. 
+```{r,echo=FALSE}
+  dailySBint<-ggplot(dailyForPlots,aes(x=date,y=SedentaryMinutes,color=intervention,group=intervention))+
+                       geom_point(alpha=0.25) + 
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                       theme_classic() +
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",]) + 
+                                             labs(x="Date",
+                                                  y="Daily minutes of SB",
+                                                  title="Daily minutes of SB:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailySBint
+```
+
+#### Boxplot of SB per day and participant, by week
+```{r,echo=FALSE}
+  boxplotSB<-ggplot(dailyForPlots,aes(x=weekStart,y=SedentaryMinutes,fill=intervention))+
+                       geom_jitter(alpha=0.05) +
+                       geom_boxplot(outliers=FALSE) +
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_fill_manual(values=c("#FFC833","#81DA66","#619CFF")) +
+                       theme_classic() +
+                      labs(x="Date",
+                           y="Daily minutes of sedentary time",
+                           title="Daily minutes of sedentary time:\nBefore, during and after the intervention period")+
+                      theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                            axis.title.x = element_text(face="bold"),
+                            axis.title.y = element_text(face="bold"),
+                            plot.title = element_text(face="bold",hjust=0.5)) 
+  boxplotSB
+```
+
+#### Minutes of SB per day and participant - Queen's vs. UBC
+Overall, SB is slightly higher at Queens; SB is lower at UBC and dips slightly during the intervention period. 
+```{r,echo=FALSE}
+  dailySBcampus<-ggplot(dailyForPlots,aes(x=date,y=SedentaryMinutes,color=University))+
+                           scale_color_manual(values=c("#619CFF","#FFC833")) +
+                           geom_point() + 
+                           theme_classic() +
+                           geom_smooth() + 
+                           labs(x="Date",
+                                y="Daily minutes of SB",
+                                title="Daily minutes of SB - By Campus") + 
+                            theme(axis.title.x = element_text(face="bold"),
+                                                          axis.title.y = element_text(face="bold"),
+                                                          plot.title = element_text(face="bold",
+                                                                                    hjust=0.5))
+  dailySBcampus
+```
+
+
+#### Minutes of SB per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
+Intervention content was released on Mondays and Wednesdays. The following plot would suggest no major difference in daily SB on Monday/Wednesday vs. other days of the week. 
+```{r,echo=FALSE}
+  dailySBweekday<-ggplot(daily,aes(x=date,y=SedentaryMinutes,color=mon_wed))+
+             geom_point() + 
+             scale_color_manual(values=c("#619CFF","#FFC833")) +
+             theme_classic() +
+             geom_smooth() + 
+             labs(x="Date",
+                  y="Daily minutes of SB",
+                  title="Daily minutes of SB:\nMonday and Wednesday vs. other days") +
+             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                   axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailySBweekday
+```
+
+#### Mean and median daily SB, by date
+Mean daily SB per day. Trend looks as described previously; daily SB ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
+```{r,echo=FALSE}
+  meanSB_date<-dailyForPlots %>% ungroup() %>%
+                                   select(Id,date,intervention,SedentaryMinutes) %>%
+                                   group_by(date) %>% 
+                                   mutate(meanSB=mean(SedentaryMinutes),
+                                          n=length(unique(Id))) %>% 
+                                   select(-Id,-SedentaryMinutes) %>% distinct()
+  meanSB_datePeriod<-ggplot(meanSB_date,aes(x=date,y=meanSB,group=intervention,color=intervention))+
+                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                         geom_point() + 
+                         geom_line() +
+                         geom_smooth(data=meanSB_date[meanSB_date$intervention=="intervention",],aes(x=date,y=meanSB)) +
+                         theme_classic() +
+                         labs(x="Date",
+                              y="Mean daily minutes of SB",
+                              title="Mean daily minutes of SB, by day") + 
+                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",hjust=0.5)) 
+  meanSB_datePeriod
+```
+
+Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of SB per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily SB exhibits a cyclical trend as well. 
+
+Median SB per day. Similar trend, through the downward trajectory appears more noticable
+```{r,echo=FALSE}
+  medianSB_date<-dailyForPlots %>% ungroup() %>%
+                                   select(Id,date,intervention,SedentaryMinutes) %>%
+                                   group_by(date) %>% 
+                                   mutate(medianSB=median(SedentaryMinutes),
+                                          n=length(unique(Id))) %>% 
+                                   select(-Id,-SedentaryMinutes) %>% distinct()
+  medianSB_datePeriod<-ggplot(medianSB_date,aes(x=date,y=medianSB,group=intervention,color=intervention))+
+                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                         geom_point() + 
+                         geom_line() +
+                         geom_smooth(data=medianSB_date[medianSB_date$intervention=="intervention",],aes(x=date,y=medianSB)) +
+                         theme_classic() +
+                         labs(x="Date",
+                              y="Median daily minutes of SB",
+                              title="Median daily minutes of SB, by day") + 
+                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",hjust=0.5)) 
+  medianSB_datePeriod
+```
+
+
+## Sleep
+
+#### Distribution/frequency of Sleep - with and without including 0s
+First, lets assess the distribution of Sleep across participant-days. Similar to the engagement metrics, minutes of Sleep is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if Sleep (right). 
+```{r,echo=FALSE}
+  summary(dailyForPlots$TotalTimeInBed)
+  freqSleep<-ggplot(dailyForPlots,aes(x=TotalTimeInBed)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Daily minutes of Sleep",
+                               y="Frequency",
+                               title="Minutes of Sleep per day and\nparticipant") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  freqSleep_noZeros<-ggplot(dailyForPlots[dailyForPlots$TotalTimeInBed>0,],aes(x=TotalTimeInBed)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Daily minutes of Sleep",
+                               y="Frequency",
+                               title="Minutes of Sleep per day and\n participant (excluding values of 1440)") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  grid.arrange(freqSleep,freqSleep_noZeros,ncol=2)
+```
+
+### Plot of minutes of Sleep per day over time -- overall and comparing engagers and non-engagers
+Next, lets assess how daily Sleep varies over time. There is no obvious trend over time, though there is a slight bow to the loess line that appears to correspond (roughly) to the intervention period. 
+```{r,echo=FALSE,warning=FALSE}
+  dailySleep<-ggplot(dailyForPlots,aes(x=date,y=TotalTimeInBed))+
+             geom_point(data=dailyForPlots,aes(x=date,y=TotalTimeInBed,color=intervention),alpha=0.25) + 
+             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+             theme_classic() +
+             geom_smooth(color="black") + 
+             labs(x="Date",
+                  y="Daily minutes of Sleep",
+                  title="Daily minutes of Sleep, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))
+  dailySleep
+```
+
+Similar to MVPA, Sleep ramped up during the pre-intervention period and was sustained throughout the intervention period. 
+```{r,echo=FALSE}
+  dailySleepint<-ggplot(dailyForPlots,aes(x=date,y=TotalTimeInBed,color=intervention,group=intervention))+
+                       geom_point(alpha=0.25) + 
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                       theme_classic() +
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",]) + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",]) + 
+                                             labs(x="Date",
+                                                  y="Daily minutes of Sleep",
+                                                  title="Daily minutes of Sleep:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailySleepint
+```
+#### Boxplot of SB per day and participant, by week
+```{r,echo=FALSE}
+  boxplotSleep<-ggplot(dailyForPlots,aes(x=weekStart,y=TotalTimeInBed,fill=intervention))+
+                       geom_jitter(alpha=0.05) +
+                       geom_boxplot() +
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_fill_manual(values=c("#FFC833","#81DA66","#619CFF")) +
+                       theme_classic() +
+                      labs(x="Date",
+                           y="Daily minutes of time in bed",
+                           title="Daily minutes of time in bed:\nBefore, during and after the intervention period")+
+                      theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                            axis.title.x = element_text(face="bold"),
+                            axis.title.y = element_text(face="bold"),
+                            plot.title = element_text(face="bold",hjust=0.5)) 
+  boxplotSleep
+```
+
+#### Minutes of Sleep per day and participant - Queen's vs. UBC
+Overall, Sleep is slightly higher at Queens; Sleep is lower at UBC and dips slightly during the intervention period. 
+```{r,echo=FALSE}
+  dailySleepcampus<-ggplot(dailyForPlots,aes(x=date,y=TotalTimeInBed,color=University))+
+                           scale_color_manual(values=c("#619CFF","#FFC833")) +
+                           geom_point() + 
+                           theme_classic() +
+                           geom_smooth() + 
+                           labs(x="Date",
+                                y="Daily minutes of Sleep",
+                                title="Daily minutes of Sleep - By Campus") + 
+                            theme(axis.title.x = element_text(face="bold"),
+                                                          axis.title.y = element_text(face="bold"),
+                                                          plot.title = element_text(face="bold",
+                                                                                    hjust=0.5))
+  dailySleepcampus
+```
+
+
+#### Minutes of Sleep per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
+Intervention content was released on Mondays and Wednesdays. The following plot would suggest no major difference in daily Sleep on Monday/Wednesday vs. other days of the week. 
+```{r,echo=FALSE}
+  dailySleepweekday<-ggplot(daily,aes(x=date,y=TotalTimeInBed,color=mon_wed))+
+             geom_point() + 
+             scale_color_manual(values=c("#619CFF","#FFC833")) +
+             theme_classic() +
+             geom_smooth() + 
+             labs(x="Date",
+                  y="Daily minutes of Sleep",
+                  title="Daily minutes of Sleep:\nMonday and Wednesday vs. other days") +
+             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                   axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailySleepweekday
+```
+
+#### Mean and median daily Sleep, by date
+Mean daily Sleep per day. Trend looks as described previously; daily Sleep ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
+```{r,echo=FALSE}
+  meanSleep_date<-dailyForPlots %>% ungroup() %>%
+                                   select(Id,date,intervention,TotalTimeInBed) %>%
+                                   group_by(date) %>% 
+                                   mutate(meanSleep=mean(TotalTimeInBed),
+                                          n=length(unique(Id))) %>% 
+                                   select(-Id,-TotalTimeInBed) %>% distinct()
+  meanSleep_datePeriod<-ggplot(meanSleep_date,aes(x=date,y=meanSleep,group=intervention,color=intervention))+
+                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                         geom_point() + 
+                         geom_line() +
+                         geom_smooth(data=meanSleep_date[meanSleep_date$intervention=="intervention",],aes(x=date,y=meanSleep)) +
+                         theme_classic() +
+                         labs(x="Date",
+                              y="Mean daily minutes of Sleep",
+                              title="Mean daily minutes of Sleep, by day") + 
+                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",hjust=0.5)) 
+  meanSleep_datePeriod
+```
+
+Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of Sleep per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily Sleep exhibits a cyclical trend as well. 
+
+Median Sleep per day. Similar trend, through the downward trajectory appears more noticable
+```{r,echo=FALSE}
+  medianSleep_date<-dailyForPlots %>% ungroup() %>%
+                                   select(Id,date,intervention,TotalTimeInBed) %>%
+                                   group_by(date) %>% 
+                                   mutate(medianSleep=median(TotalTimeInBed),
+                                          n=length(unique(Id))) %>% 
+                                   select(-Id,-TotalTimeInBed) %>% distinct()
+  medianSleep_datePeriod<-ggplot(medianSleep_date,aes(x=date,y=medianSleep,group=intervention,color=intervention))+
+                         #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                         scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                         geom_point() + 
+                         geom_line() +
+                         geom_smooth(data=medianSleep_date[medianSleep_date$intervention=="intervention",],aes(x=date,y=medianSleep)) +
+                         theme_classic() +
+                         labs(x="Date",
+                              y="Median daily minutes of Sleep",
+                              title="Median daily minutes of Sleep, by day") + 
+                         theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                              axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",hjust=0.5)) 
+  medianSleep_datePeriod
+```
+
+## High-level: All movement behaviours over time 
+
+Plot of all movement behaviours over time
+```{r,echo=FALSE,warning=FALSE}
+  dailyLong<-pivot_longer(dailyForPlots,cols=c("totalMVPA","LightlyActiveMinutes","SedentaryMinutes","TotalTimeInBed"),
+                          names_to="behaviour",
+                          values_to="minutes")
+  dailyLong$behaviour<-ifelse(dailyLong$behaviour=="totalMVPA","MVPA",
+                              ifelse(dailyLong$behaviour=="LightlyActiveMinutes","LPA",
+                                     ifelse(dailyLong$behaviour=="SedentaryMinutes","Sedentary",
+                                            ifelse(dailyLong$behaviour=="TotalTimeInBed","Sleep",NA))))
+  dailyLong$behaviour<-factor(dailyLong$behaviour,levels=c("Sleep","Sedentary","LPA","MVPA"))
+  dailyLong$period<-ifelse(dailyLong$intervention=="pre","Before",
+                    ifelse(dailyLong$intervention=="intervention","During",
+                    ifelse(dailyLong$intervention=="post","After",NA)))
+  dailyLong$period<-factor(dailyLong$period,levels=c("Before","During","After"))
+  summary(as.factor(dailyLong$period))
+  dailyBehaviours<-ggplot(dailyLong,aes(x=date,y=minutes,group=behaviour,color=behaviour))+
+             geom_smooth() + # blue
+             scale_color_manual(values=c("#FF8333","#FFC833","#81DA66","#619CFF"))+
+             scale_fill_manual(values=c("#FF8333","#FFC833","#81DA66","#619CFF"))+
+             theme_classic()+
+             labs(x="Date",
+                  y="Daily minutes of MVPA",
+                  title="Daily minutes of MVPA, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))+
+             geom_vline(xintercept = min(dailyForPlots[dailyForPlots$intervention=="intervention",]$date))+
+             geom_vline(xintercept = max(dailyForPlots[dailyForPlots$intervention=="intervention",]$date))
+  dailyBehaviours
+```
+
+#### Boxplot of all movement behaviours per day and participant, by intervention period
+
+```{r,echo=FALSE}
+  boxplotBehavioursPeriod<-ggplot(dailyLong,aes(x=period,y=minutes,fill=period))+
+                       facet_wrap(dailyLong$behaviour,nrow=1)+
+                       #geom_jitter(alpha=0.05) +
+                       geom_boxplot() +
+                       scale_color_manual(values=c(#"#FF8333",
+                                                  "#FFC833","#81DA66","#619CFF"))+
+                       scale_fill_manual(values=c(#"#FF8333",
+                                                  "#FFC833","#81DA66","#619CFF"))+
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       theme_classic() +
+                    labs(x="Date",
+                         y="Daily minutes of time in bed",
+                         #title="Daily minutes spent in different movement behaviours:\nBefore, during and after the intervention period",
+                         fill="Intervention Period")+
+                    theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                          axis.title.x = element_text(face="bold"),
+                          axis.title.y = element_text(face="bold"),
+                          plot.title = element_text(face="bold",hjust=0.5),
+                          legend.title = element_text(face="bold"),
+                          strip.text = element_text(face="bold")) 
+  boxplotBehavioursPeriod
+```
+
+#### Boxplot of all movement behaviours per day and participant, by week
+```{r,echo=FALSE}
+  boxplotBehavioursWeekly<-ggplot(dailyLong,aes(x=weekStart,y=minutes,fill=period))+
+                       facet_wrap(dailyLong$behaviour,nrow=1)+
+                       #geom_jitter(alpha=0.05) +
+                       geom_boxplot() +
+                       scale_color_manual(values=c(#"#FF8333",
+                                                  "#FFC833","#81DA66","#619CFF"))+
+                       scale_fill_manual(values=c(#"#FF8333",
+                                                  "#FFC833","#81DA66","#619CFF"))+
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       theme_classic() +
+                    labs(x="Date",
+                         y="Daily minutes of time in bed",
+                         #title="Daily minutes spent in different movement behaviours:\nBefore, during and after the intervention period",
+                         fill="Intervention Period")+
+                    theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                          axis.title.x = element_text(face="bold"),
+                          axis.title.y = element_text(face="bold"),
+                          plot.title = element_text(face="bold",hjust=0.5),
+                          legend.title = element_text(face="bold"),
+                          strip.text = element_text(face="bold")) 
+  boxplotBehavioursWeekly
+```
+```{r,echo=FALSE}
+  # boxplotBehaviours<-ggplot(dailyLong,aes(x=weekStart,y=minutes,fill=behaviour,outcol=behaviour))+
+  #                      #geom_jitter(alpha=0.05) +
+  #                      geom_boxplot() +
+  #                      scale_color_manual(values=c("#FF8333","#FFC833","#81DA66","#619CFF"))+
+  #                      scale_fill_manual(values=c("#FF8333","#FFC833","#81DA66","#619CFF"))+
+  #                      #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+  #                      theme_classic() +
+  #                   labs(x="Date",
+  #                        y="Daily minutes of time in bed",
+  #                        title="Daily minutes spent in different movement behaviours:\nBefore, during and after the intervention period",
+  #                        fill="Movement behaviour")+
+  #                   theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                         axis.title.x = element_text(face="bold"),
+  #                         axis.title.y = element_text(face="bold"),
+  #                         plot.title = element_text(face="bold",hjust=0.5))
+  # boxplotBehaviours
+```
+
+#### Relationship between engagement and movement behaviours
+
+Scatter plot: behaviour vs. all clicks
+```{r,echo=FALSE}
+  scatter<-ggplot(dailyLong,aes(x=dayCountClickAny,y=minutes,fill=period,color=period,group=behaviour))+
+           geom_jitter(alpha=0.25)+
+           geom_smooth(color="black")+
+           scale_color_manual(values=c(#"#FF8333",
+                                  "#FFC833","#81DA66","#619CFF"))+
+           scale_fill_manual(values=c(#"#FF8333",
+                                  "#FFC833","#81DA66","#619CFF"))+
+           facet_wrap(dailyLong$behaviour,nrow=1) +
+           theme_classic()
+  scatter
+```
+
+Scatter plot: behaviour vs. all engagement
+```{r,echo=FALSE}
+  scatterEngage<-ggplot(dailyLong,aes(x=dayCountEngageAny,y=minutes,fill=period,color=period,group=behaviour))+
+           geom_jitter(alpha=0.25)+
+           geom_smooth(color="black")+
+           scale_color_manual(values=c(#"#FF8333",
+                                  "#FFC833","#81DA66","#619CFF"))+
+           scale_fill_manual(values=c(#"#FF8333",
+                                  "#FFC833","#81DA66","#619CFF"))+
+           facet_wrap(dailyLong$behaviour,nrow=1) +
+           theme_classic()
+  scatterEngage
+```
+
+Scatter plot: behaviour vs. intervention clicks
+```{r,echo=FALSE}
+  scatterClickInt<-ggplot(dailyLong[dailyLong$period=="During",],
+                           aes(x=dayCountClickInt,y=minutes,fill=period,color=period,group=behaviour))+
+           geom_jitter(alpha=0.2)+
+           scale_color_manual(values=c("#81DA66"))+
+           #scale_fill_manual(values=c("#81DA66"))+
+           facet_wrap(dailyLong[dailyLong$period=="During",]$behaviour,nrow=1) +
+           theme_classic()
+  scatterClickInt
+```
+
+Scatter plot: behaviour vs. intervention engagement
+```{r,echo=FALSE}
+  scatterEngageInt<-ggplot(dailyLong[dailyLong$period=="During",],
+                           aes(x=dayCountEngageInt,y=minutes,fill=period,color=period,group=behaviour))+
+           geom_jitter(alpha=0.2)+
+           scale_color_manual(values=c("#81DA66"))+
+           #scale_fill_manual(values=c("#81DA66"))+
+           facet_wrap(dailyLong[dailyLong$period=="During",]$behaviour,nrow=1) +
+           theme_classic()
+  scatterEngageInt
+```
+
+# Models
 
 ### Exploratory: Linear regression
 

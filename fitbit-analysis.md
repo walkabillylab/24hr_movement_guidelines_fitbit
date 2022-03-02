@@ -55,6 +55,7 @@ Create person-day-level for plots. Currently, the "daily" dataframe has one row 
   dailyForPlots<-distinct(dailyForPlots)
 ```
 
+# Exploratory Analysis
 
 ## Engagement and clicks:
 
@@ -133,14 +134,27 @@ Next, lets assess how daily MVPA varies over time. There is no obvious trend ove
 ```
 
 ![](fitbit-analysis_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+When you fit a loess curve to each period, daily MVPA appears to "ramp-up" during the pre-intervention period and remain ~stable throughout the intervention period. 
 
-Interestingly, this "bowing" of the loess curve appears to be driven by participants that engaged with the app content (at least once); a light downward trend is observed among non-engagers
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
 
 ```
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
 ![](fitbit-analysis_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+
+Interestingly, this "bowing" of the loess curve appears to be driven by participants that engaged with the app content (at least once); a light downward trend is observed among non-engagers (not pictured)
+
+
+#### Boxplot of MVPA per day and participant, by week
+![](fitbit-analysis_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 #### Minutes of MVPA per day and participant - Queen's vs. UBC
 Overall, MVPA is slightly higher at Queens; MVPA is lower at UBC and dips slightly during the intervention period. 
@@ -149,15 +163,10 @@ Overall, MVPA is slightly higher at Queens; MVPA is lower at UBC and dips slight
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
-The relationship between MVPA and campus also differs when you stratify by engagers and non-engagers. Among engagers, participant's at Queen's were more active, and there appears to be a slightly increase in MVPA during the intervention period (as seen above), while engagers at UBC exhibited a dip in daily MVPA during the middle of the intervention period (left panel). Converely, non-engagers at UBC were more active than non-engagers at Queen's (right), though daily MVPA remained largely stable at both campuses over time. 
+The relationship between MVPA and campus also differs when you stratify by engagers and non-engagers. Among engagers, participant's at Queen's were more active, and there appears to be a slightly increase in MVPA during the intervention period (as seen above), while engagers at UBC exhibited a dip in daily MVPA during the middle of the intervention period (left panel). Converely, non-engagers at UBC were more active than non-engagers at Queen's (right), though daily MVPA remained largely stable at both campuses over time. (not pictured)
 
-```
-## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
-```
-
-![](fitbit-analysis_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 #### Minutes of MVPA per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
 Intervention content was released on Mondays and Wednesdays. The following plot would suggest no major difference in daily MVPA on Monday/Wednesday vs. other days of the week. 
@@ -166,52 +175,11 @@ Intervention content was released on Mondays and Wednesdays. The following plot 
 ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
-
-It doesn't look like Mondays/Wednesdays have higher MVPA for either group (again, we see the non-engagers MVPA level remained more stable over time compared to engagers)
-
-```
-## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
-```
-
-![](fitbit-analysis_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
-
-#### Trend: Minutes of MVPA per day in the pre-intervention, intervention and post-intervention period
-It appears that daily MVPA "ramped-up" during the pre-intervention period and was sustained throughout the intervention period. 
-
-```
-## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
-```
-
-```
-## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
-```
-
-```
-## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
-```
-
 ![](fitbit-analysis_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
-We see a similar trend among the non-engagers; however, they appear to have ramped up to a slightly lower level of daily MVPA. This may suggest that at least part of the intervention effect is the fitbit itself, since even non-engagers saw increases in MVPA (albeit lower), and these increases were observed before the start of the intervention period. 
+It doesn't look like Mondays/Wednesdays have higher MVPA for either group (again, we see the non-engagers MVPA level remained more stable over time compared to engagers) (not pictured)
 
-```
-## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
-```
 
-```
-## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
-```
-
-```
-## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
-```
-
-![](fitbit-analysis_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
-
-#### Daily minutes of MVPA, faceted by week number
-Another way to visualize changes over time
-![](fitbit-analysis_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
 
 #### Mean and median daily MVPA, by date
 Mean daily MVPA per day. Trend looks as described previously; daily MVPA ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
@@ -220,15 +188,10 @@ Mean daily MVPA per day. Trend looks as described previously; daily MVPA ramps u
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
 
-Similar trends are observed among engagers and non-engagers; however, mean MVPA for non-engagers are more impacted by outlying values, since there were so few non-engagers (n=7). 
+<!-- Similar trends are observed among engagers and non-engagers; however, mean MVPA for non-engagers are more impacted by outlying values, since there were so few non-engagers (n=7).  -->
 
-```
-## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
-```
-
-![](fitbit-analysis_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
 
 Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of MVPA per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily MVPA exhibits a cyclical trend as well. 
 
@@ -238,24 +201,307 @@ Median MVPA per day. Similar trend, through the downward trajectory appears more
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
 
-Daily median MVPA looks to ramp up to the same median daily MVPA by the end of the pre-intervention period, and start the intervention period at approximately the same level of daily MVPA. However, the non-engagers exhibit a more dramatic decrease throughput the intervention period, and end at a lower median MVPA at the end of the intervention period/into the post-period. 
+<!-- Daily median MVPA looks to ramp up to the same median daily MVPA by the end of the pre-intervention period, and start the intervention period at approximately the same level of daily MVPA. However, the non-engagers exhibit a more dramatic decrease throughput the intervention period, and end at a lower median MVPA at the end of the intervention period/into the post-period.  -->
+
+
+<!-- #### Mean daily MVPA, by weekday and intervention period
+Trends in the pre- and post- periods must be interpreted with caution, as there is only 1 (or 2) dates contributing to the estimates for each weekday in these two periods. As such, both are ~ the trend over time (with the exception of Sunday in the post-period, which is based on two days of data) -->
+
+
+<!-- There is a slightly different trend in mean daily MVPA among engagers and non-engagers (during the intervention period in particular) (not pictured) -->
+
+
+
+## LPA
+
+#### Distribution/frequency of LPA - with and without including 0s
+First, lets assess the distribution of LPA across participant-days. Similar to the engagement metrics, minutes of LPA is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if LPA (right). 
+
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##     0.0   134.0   187.0   189.7   247.0   547.0
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-27-1.png)<!-- -->
+
+### Plot of minutes of LPA per day over time -- overall and comparing engagers and non-engagers
+Next, lets assess how daily LPA varies over time. There is no obvious trend over time, though there is a slight bow to the loess line that appears to correspond (roughly) to the intervention period. 
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-28-1.png)<!-- -->
+
+Similar to MVPA, LPA ramped up during the pre-intervention period and was sustained throughout the intervention period. 
 
 ```
 ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
 ```
 
-![](fitbit-analysis_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
 
-#### Mean daily MVPA, by weekday and intervention period
-Trends in the pre- and post- periods must be interpreted with caution, as there is only 1 (or 2) dates contributing to the estimates for each weekday in these two periods. As such, both are ~ the trend over time (with the exception of Sunday in the post-period, which is based on two days of data)
-![](fitbit-analysis_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
 
-There is a slightly different trend in mean daily MVPA among engagers and non-engagers (during the intervention period in particular). Plot is not working when I knit the file so I will exclude for now.
-![](fitbit-analysis_files/figure-html/unnamed-chunk-27-1.png)<!-- -->
+![](fitbit-analysis_files/figure-html/unnamed-chunk-29-1.png)<!-- -->
 
-## Models
+#### Boxplot of LPA per day and participant, by week
+![](fitbit-analysis_files/figure-html/unnamed-chunk-30-1.png)<!-- -->
+
+#### Minutes of LPA per day and participant - Queen's vs. UBC
+Overall, LPA is slightly higher at Queens; LPA is lower at UBC and dips slightly during the intervention period. 
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-31-1.png)<!-- -->
+
+
+#### Minutes of LPA per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
+Intervention content was released on Mondays and Wednesdays. The following plot would suggest no major difference in daily LPA on Monday/Wednesday vs. other days of the week. 
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-32-1.png)<!-- -->
+
+#### Mean and median daily LPA, by date
+Mean daily LPA per day. Trend looks as described previously; daily LPA ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-33-1.png)<!-- -->
+
+Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of LPA per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily LPA exhibits a cyclical trend as well. 
+
+Median LPA per day. Similar trend, through the downward trajectory appears more noticable
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-34-1.png)<!-- -->
+
+
+## Sedentary Behaviour
+
+#### Distribution/frequency of SB - with and without including 0s
+First, lets assess the distribution of SB across participant-days. Similar to the engagement metrics, minutes of SB is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if SB (right). 
+
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##     0.0   662.0   756.0   787.1   855.0  1440.0
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-35-1.png)<!-- -->
+
+### Plot of minutes of SB per day over time -- overall and comparing engagers and non-engagers
+Next, lets assess how daily SB varies over time. There is no obvious trend over time, though there is a slight bow to the loess line that appears to correspond (roughly) to the intervention period. 
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-36-1.png)<!-- -->
+
+Similar to MVPA, SB ramped up during the pre-intervention period and was sustained throughout the intervention period. 
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-37-1.png)<!-- -->
+
+#### Boxplot of SB per day and participant, by week
+
+```
+## Warning: Ignoring unknown parameters: outliers
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-38-1.png)<!-- -->
+
+#### Minutes of SB per day and participant - Queen's vs. UBC
+Overall, SB is slightly higher at Queens; SB is lower at UBC and dips slightly during the intervention period. 
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-39-1.png)<!-- -->
+
+
+#### Minutes of SB per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
+Intervention content was released on Mondays and Wednesdays. The following plot would suggest no major difference in daily SB on Monday/Wednesday vs. other days of the week. 
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-40-1.png)<!-- -->
+
+#### Mean and median daily SB, by date
+Mean daily SB per day. Trend looks as described previously; daily SB ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-41-1.png)<!-- -->
+
+Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of SB per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily SB exhibits a cyclical trend as well. 
+
+Median SB per day. Similar trend, through the downward trajectory appears more noticable
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-42-1.png)<!-- -->
+
+
+## Sleep
+
+#### Distribution/frequency of Sleep - with and without including 0s
+First, lets assess the distribution of Sleep across participant-days. Similar to the engagement metrics, minutes of Sleep is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if Sleep (right). 
+
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##     0.0   351.0   437.0   392.7   506.0   880.0
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-43-1.png)<!-- -->
+
+### Plot of minutes of Sleep per day over time -- overall and comparing engagers and non-engagers
+Next, lets assess how daily Sleep varies over time. There is no obvious trend over time, though there is a slight bow to the loess line that appears to correspond (roughly) to the intervention period. 
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-44-1.png)<!-- -->
+
+Similar to MVPA, Sleep ramped up during the pre-intervention period and was sustained throughout the intervention period. 
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-45-1.png)<!-- -->
+#### Boxplot of SB per day and participant, by week
+![](fitbit-analysis_files/figure-html/unnamed-chunk-46-1.png)<!-- -->
+
+#### Minutes of Sleep per day and participant - Queen's vs. UBC
+Overall, Sleep is slightly higher at Queens; Sleep is lower at UBC and dips slightly during the intervention period. 
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-47-1.png)<!-- -->
+
+
+#### Minutes of Sleep per day - Monday and Wednesday vs. other days of the week - overall and for engagers vs. non-engagers
+Intervention content was released on Mondays and Wednesdays. The following plot would suggest no major difference in daily Sleep on Monday/Wednesday vs. other days of the week. 
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-48-1.png)<!-- -->
+
+#### Mean and median daily Sleep, by date
+Mean daily Sleep per day. Trend looks as described previously; daily Sleep ramps up during the pre-intervention period and remains largely stable throughput the intervention period (decreases slightly)
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-49-1.png)<!-- -->
+
+Repeat the above using median instead of mean, acknowledging that there are some extreme outlier (~500 minutes of Sleep per day). Using median, we see more of the downward trend over time. There does seem to be evidence that daily Sleep exhibits a cyclical trend as well. 
+
+Median Sleep per day. Similar trend, through the downward trajectory appears more noticable
+
+```
+## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-50-1.png)<!-- -->
+
+## High-level: All movement behaviours over time 
+
+Plot of all movement behaviours over time
+
+```
+## Before During  After 
+##   1868  11084   2176
+```
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-51-1.png)<!-- -->
+
+#### Boxplot of all movement behaviours per day and participant, by intervention period
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-52-1.png)<!-- -->
+
+#### Boxplot of all movement behaviours per day and participant, by week
+![](fitbit-analysis_files/figure-html/unnamed-chunk-53-1.png)<!-- -->
+
+
+#### Relationship between engagement and movement behaviours
+
+Scatter plot: behaviour vs. all clicks
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-55-1.png)<!-- -->
+
+Scatter plot: behaviour vs. all engagement
+
+```
+## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+```
+
+![](fitbit-analysis_files/figure-html/unnamed-chunk-56-1.png)<!-- -->
+
+Scatter plot: behaviour vs. intervention clicks
+![](fitbit-analysis_files/figure-html/unnamed-chunk-57-1.png)<!-- -->
+
+Scatter plot: behaviour vs. intervention engagement
+![](fitbit-analysis_files/figure-html/unnamed-chunk-58-1.png)<!-- -->
+
+# Models
 
 ### Exploratory: Linear regression
 

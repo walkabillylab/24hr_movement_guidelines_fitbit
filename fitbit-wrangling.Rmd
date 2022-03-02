@@ -317,7 +317,6 @@ It appears as though all 800+ duplicate rows are within the same participant -- 
   length(unique(test4[test4$length==2,]$Id))
   table(test4$length)
   duplicates<-test4[test4$length==2,]
-  rm(test4)
 ```
 
 The remaining 6 duplicates represent 3 minutes from one participant where the value also differs between the two observations. I will recode value to NA and then de-duplicate again: 
@@ -482,6 +481,8 @@ Clean columns in battery data
   battery$dateTime<-as.POSIXct(battery$dateTime,tz="UTC")
   battery$lastSync<-lubridate::mdy_hms(battery$LastSync)
   battery<-battery %>% select(Id,dateTime,lastSync,DeviceName,BatteryLevel)
+  unique(battery$BatteryLevel)
+  length(battery[battery$BatteryLevel=="Empty",]$BatteryLevel)
 ```
 
 Sometimes there are multiple sync's per minute, but they always have the same battery level
@@ -667,30 +668,38 @@ Aggregate at the level of the day
                                                    minuteVeryActive=sum(minuteVeryActive,na.rm=TRUE),
                                                    TotalSleps=identity(StepTotal),
                                                    minuteSteps=sum(minuteSteps),
-                                                   TotalTimeInBed=identity(TotalTimeInBed))
+                                                   TotalTimeInBed=identity(TotalTimeInBed),
+                                                   TotalTimeAsleep=identity(TotalMinutesAsleep),
+                                                   TotalTimeAwake=identity(TotalTimeAwake)) %>% distinct()
+  assess$test<-assess$TotalTimeAsleep+assess$TotalTimeAwake
 ```
 
 How many minutes of data are accounted for accross the various day-level intensity categories?
 Calculate as the sum of SedentaryMinutes, LightlyActiveMinutes, FairlyActiveMinutes, VeryActivitMinutes, TotalTimeInBed, nonWearMinutes
 ```{r}
+names(data)
   assess$sum_minutes<-assess$SedentaryMinutes+
                       assess$LightlyActiveMinutes+
                       assess$FairlyActiveMinutes+
                       assess$VeryActiveMinutes+
-                      assess$TotalTimeInBed+assess$nonWearMinutes
+                      assess$TotalTimeInBed
   assess<-distinct(assess)
   summary(assess$sum_minutes)
+  length(assess[assess$sum_minutes!=1440,]$Id) # 362 people-days with either more or less than 1440 minutes/day of day-level data (under 10% of days)
+  length(unique(assess[assess$sum_minutes!=1440,]$Id))
+  length(unique(assess$Id)) # almost every participant had at least one day with < or > 1440 minutes
 ```
 
 Create a dataframe that calculates the difference between totals from the day-level data vs. totals aggregated up from the minute-level data
 ```{r}
 # compare
   compare<-assess %>% mutate(diffCalories=TotalCalories-minuteCalories,
-                             diffSed=SedentaryMinutes-minuteSedentary,
+                             diffSed=SedentaryMinutes-minuteSedentary, # day-level minute minute-level 
                              diffLight=LightlyActiveMinutes-minuteLightlyActive,
                              diffFairly=FairlyActiveMinutes-minuteFairlyActive,
                              diffVery=VeryActiveMinutes-minuteVeryActive,
-                             diffSteps=TotalSleps-minuteSteps)
+                             diffSteps=TotalSleps-minuteSteps,
+                             nonWearMinutes=identity(nonWearMinutes))
 ```
 
 Difference in calories: 
@@ -700,6 +709,12 @@ Difference in calories:
       # agree for ~2300 participant-days; 
       # disagrees for just over 100 participant-days, most by a relatively small amount, 12 by more than 100 calories 
   ggplot(compare,aes(diffCalories)) + geom_histogram() + theme_classic() + labs(x="Difference in daily calories")
+```
+Difference in minutes of sedentary time: 
+```{r}
+  # diffSed: issues with day-level measure of sedentary time -- appears to take another category into account?
+  ggplot(compare,aes(diffSed)) + geom_histogram() + theme_classic() + labs(x="Difference in daily sedentary time")
+  ggplot(compare,aes(diffSed+TotalTimeInBed)) + geom_histogram() + theme_classic() + labs(x="Difference in daily sedentary time")
 ```
 
 Difference in minutes of light activity: 
@@ -898,24 +913,10 @@ Remove engagement data frames
 
 # 4. Prepare and export TOP 
 
-To do: 
-(1) Plot daily MVPA, faceted by week - DONE
-(2) Plot the distribution of engagement across person-days - DONE
-(3) Create table of average weekly PA
-(4) What is the overall effect of the intervention day (regardless of interaction/engagement/clicks) and how does that change over the course of the pre/during/post -- avg. effect of intervention (intention to treat) -- linear regression - intervention variable (monday/wednesday) -- interaction between pre/during/post and monday/wednesday
-Effect of engagement on MVPA -- On average, when you enagge vs. don't enagge with the content, what happens with their activity (days when you engaged vs. days you didn't)
-  Any engagement vs. never engaged -- time series with smooth to work -- lm or smooth etc. 
-  Engagement by day -- these people engaged on this day vs. this 
-  Clicks by day 
-(5) ever engaged vs. never engaged, by engaged (within the week/day) and by clicked (within the week/day) 
-(6) model building - if we were going to model this, what would the model look like? from epi/naturral experiment perspective 
-intervention content vs. non-intervention content (look at clicks and engagement as is, revisit this after speaking with Jenn etc.)
-
 Recode ever_engage for figures
 ```{r}
   daily$ever_engage<-ifelse(daily$ever_engage==1,"Clicked or engaged at least once","Never engaged or clicked")
 ```
-
 
 Add week start date and day of week for plotting and analysis
 ```{r}
@@ -989,8 +990,21 @@ Calculate average daily clicks and engagements per participant, and per particip
 ## Write CSV file for TOP
 
 ```{r}
+  names(daily)
   daily<-daily %>% select(-weekNum)
   daily$pubdate<-as.character(daily$pubdate)
   daily[is.na(daily)]<-""
   write.csv(daily,"daily-TOP-CSEP.csv",row.names = FALSE)
 ```
+
+```{r}
+  daily$test<-daily$SedentaryMinutes+
+              daily$TotalTimeInBed+
+              daily$LightlyActiveMinutes+
+              daily$FairlyActiveMinutes+
+              daily$VeryActiveMinutes
+  plot(daily$test)
+  daily$test2<-1440-daily$SedentaryMinutes
+  
+```
+

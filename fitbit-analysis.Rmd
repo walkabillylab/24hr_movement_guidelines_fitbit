@@ -125,9 +125,9 @@ Can participants be grouped based on how often they engaged over the study perio
   countEngageDayPlot<-ggplot(person,aes(x=personCountEngageAny)) + 
                           geom_bar(fill="#619CFF") + 
                           theme_classic() +
-                          labs(x="Number of engagements per day",
+                          labs(x="Number of engagements",
                                y="Frequency",
-                               title="Distribution:\nEngagements per participant-day") +
+                               title="Distribution:\nEngagements per participant") +
                           theme(axis.title.x = element_text(face="bold"),
                                 axis.title.y = element_text(face="bold"),
                                 plot.title = element_text(face="bold",
@@ -135,9 +135,9 @@ Can participants be grouped based on how often they engaged over the study perio
   countClickDayPlot<-ggplot(person,aes(x=personCountClickAny)) + 
                          geom_bar(fill="#FFC833") + 
                          theme_classic() +
-                         labs(x="Number of clicks per day",
+                         labs(x="Number of clicks",
                                y="Frequency",
-                               title="Distribution:\nClicks per participant-day") +
+                               title="Distribution:\nClicks per participant") +
                          theme(axis.title.x = element_text(face="bold"),
                                axis.title.y = element_text(face="bold"),
                                plot.title = element_text(face="bold",
@@ -315,6 +315,11 @@ Mean clicks and engagement is calculated by taking the mean daily click and/or e
                                                             hjust=0.5))
   grid.arrange(clickWeekdayMeanPlot,engageWeekdayMeanPlot,ncol=2)
 ```
+## Total time use
+```{r}
+
+```
+
 
 ## MVPA
 

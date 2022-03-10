@@ -15,6 +15,7 @@ library(tidyverse)
 library(foreign)
 library(readxl)
 library(gridExtra)
+library(zoo)
 knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 getwd()
 ```
@@ -330,6 +331,7 @@ The remaining 6 duplicates represent 3 minutes from one participant where the va
 
 ### Merge minute-level sleep and activity data
 
+Merge minute-level sleep and activity data
 ```{r}
   minute <- minute %>% full_join(minuteSleep, by = c("dateTime","Id","date"))
   rm(minuteSleep)
@@ -347,23 +349,33 @@ Rename columns in minute-level data (so it is clear which columns are minute- vs
                      relocate(dateTime,.after=Id) %>%
                      relocate(date,.after=dateTime) %>%
                      arrange(Id,dateTime)
-  # minute$minuteAwake<-ifelse(is.na(minute$minuteSleepStage),1,0)
-  # minute$minuteWearing<-ifelse(is.na(minute$minuteHeartRate),0,1)
 ```
+
+### Identify non-wear time
+
+Will set time as non-wear if every value (except calories) is 0 (and intensity is 1) for 10 minutes in a row. 
+```{r}
+  minute$nonWearFlag<-ifelse(minute$minuteSteps==0 & minute$minuteIntensity==0 & is.na(minute$minuteHeartRate),1,0)
+  minute<-minute %>% arrange(Id,dateTime) %>% group_by(Id) %>% mutate(nonWearMean = zoo::rollapply(nonWearFlag, width=10, 
+                                                                                                   align="right", mean, fill=NA))
+# minute$nonWearMean<-ifelse(is.na(minute$nonWearMean),minute$nonWearFlag,minute$nonWearMean) # first 10 observations will be non-wear time for all participants
+```
+
+### Reformat minute-level intensity level, considering non-wear time
 
 Reformat minute-level intensity 
 ```{r}
-  minute$minuteIntensity1<-minute$minuteIntensity
-  minute$minuteIntensity<-ifelse(minute$minuteIntensity==0,"minuteSedentary",
+  minute$minuteIntensity1<-ifelse(minute$minuteIntensity==0,"minuteSedentary",
                                ifelse(minute$minuteIntensity==1,"minuteLightlyActive",
                                       ifelse(minute$minuteIntensity==2,"minuteFairlyActive",
                                              ifelse(minute$minuteIntensity==3,"minuteVeryActive",NA))))
-  minute$minuteIntensity<-ifelse(is.na(minute$minuteHeartRate),"non-wear",minute$minuteIntensity)
-  summary(as.factor(minute$minuteIntensity))
+  minute$minuteIntensity1<-ifelse(minute$nonWearMean==1,"non-wear",minute$minuteIntensity1)
+# remove rows where nonWearMean is NA (the first 9 rows per participant)
+  minute<-minute[!is.na(minute$nonWearMean),]
+  summary(as.factor(minute$minuteIntensity1))
   minute$minuteIntensityValue<-1
-  minute<-pivot_wider(minute,names_from="minuteIntensity",values_from="minuteIntensityValue")
+  minute<-pivot_wider(minute,names_from="minuteIntensity1",values_from="minuteIntensityValue")
 ```
-
 
 
 ## B. Day-level data
@@ -666,18 +678,47 @@ Aggregate at the level of the day
                                                    minuteFairlyActive=sum(minuteFairlyActive,na.rm=TRUE),
                                                    VeryActiveMinutes=identity(VeryActiveMinutes),
                                                    minuteVeryActive=sum(minuteVeryActive,na.rm=TRUE),
+                                                   nonWearMinutes=sum(nonWearMinutes,na.rm=TRUE),
                                                    TotalSleps=identity(StepTotal),
                                                    minuteSteps=sum(minuteSteps),
                                                    TotalTimeInBed=identity(TotalTimeInBed),
                                                    TotalTimeAsleep=identity(TotalMinutesAsleep),
                                                    TotalTimeAwake=identity(TotalTimeAwake)) %>% distinct()
-  assess$test<-assess$TotalTimeAsleep+assess$TotalTimeAwake
+# merge Id, date and nonWearMinutes (per Id and date) with daily data
+  daily<-merge(daily,assess[,colnames(assess) %in% c("Id","date","nonWearMinutes")],by=c("Id","date"))
 ```
+
+Explore distribution of nonWearMinutes
+```{r}
+  nonWearDist<-ggplot(daily,aes(x=nonWearMinutes)) + 
+                          geom_bar(fill="#619CFF") + 
+                          theme_classic() +
+                          labs(x="Daily minutes of non-wear time",
+                               y="Frequency",
+                               title="Non-wear time") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  nonWearDist
+  
+  nonWearOverTime<-ggplot(daily,aes(x=date,y=nonWearMinutes)) + 
+                          geom_jitter(color="#619CFF",alpha=0.1) + 
+                          theme_classic() +
+                          labs(x="Date",
+                               y="Daily non-wear minutes",
+                               title="Non-wear time") +
+                          theme(axis.title.x = element_text(face="bold"),
+                                axis.title.y = element_text(face="bold"),
+                                plot.title = element_text(face="bold",
+                                                          hjust=0.5))
+  nonWearOverTime
+```
+
 
 How many minutes of data are accounted for accross the various day-level intensity categories?
 Calculate as the sum of SedentaryMinutes, LightlyActiveMinutes, FairlyActiveMinutes, VeryActivitMinutes, TotalTimeInBed, nonWearMinutes
 ```{r}
-names(data)
   assess$sum_minutes<-assess$SedentaryMinutes+
                       assess$LightlyActiveMinutes+
                       assess$FairlyActiveMinutes+
@@ -686,8 +727,6 @@ names(data)
   assess<-distinct(assess)
   summary(assess$sum_minutes)
   length(assess[assess$sum_minutes!=1440,]$Id) # 362 people-days with either more or less than 1440 minutes/day of day-level data (under 10% of days)
-  length(unique(assess[assess$sum_minutes!=1440,]$Id))
-  length(unique(assess$Id)) # almost every participant had at least one day with < or > 1440 minutes
 ```
 
 Create a dataframe that calculates the difference between totals from the day-level data vs. totals aggregated up from the minute-level data
@@ -845,7 +884,7 @@ Merge minute-level HR with ages
 ```{r}
   minSimple<-minute[minute$Id!="Study Coordinator QU",
                                colnames(minute) %in%
-                               c("Id","dateTime","date","minuteHeartRate","minuteIntensity1","minuteSteps")]
+                               c("Id","dateTime","date","minuteHeartRate","minuteIntensity","minuteSteps")]
   minHR<-merge(minSimple,engage_participant[,colnames(engage_participant) %in% c("Id","Age")],by=c("Id"))
   minHR<-distinct(minHR)
   rm(minSimple)
@@ -911,7 +950,7 @@ Remove engagement data frames
 ```
 
 
-# 4. Prepare and export TOP 
+# 4. Create click and engagement metrics (including count of clicks and engagements per person-day, person-period and person, and mean daily clicks and engagements per person-period and person-day)
 
 Recode ever_engage for figures
 ```{r}
@@ -987,6 +1026,49 @@ Calculate average daily clicks and engagements per participant, and per particip
                                                         periodMedianDailyMVPA=median(totalMVPA))
 ```
 
+
+# 5. Clean and export TOP
+
+## Remove participant-days where TotalTimeAsleep == 0 and SedentaryMinutes == 1440 (or greater?)
+
+First, explore participant-days with 0 time in bed 
+```{r}
+  length(daily[daily$TotalTimeInBed==0,]$Id) # 565 participant-days with 0 time in bed
+    summary(daily[daily$TotalTimeInBed==0,]$SedentaryMinutes) # almost half had 0 1440 sedentary minutes, most 3/4 had at least 1134... could the balance be time when the device was dead? so 1440 = device was off, <1440 = off all day but dead part of the day 
+    summary(daily[daily$TotalTimeInBed==0,]$StepTotal)
+    summary(daily[daily$TotalTimeInBed==0,]$TotalMinutesAsleep) # all participant-days also have 0 minutes asleep
+```
+
+Next, explore participant-days with 0 minutes asleep 
+```{r}
+  length(daily[daily$TotalMinutesAsleep==0,]$Id) # 565 particiapnt-days with 0 time asleep -- same as the number with 0 time in bed
+    summary(daily[daily$TotalMinutesAsleep==0,]$TotalTimeInBed)
+```
+
+Also explore participant-days with > or = 1440 minutes of sedentary minutes
+```{r}
+  length(daily[daily$SedentaryMinutes>=1440,]$Id) # 242 participant-days with 1440 or more sedentary minutes
+    unique(daily[daily$SedentaryMinutes>=1440,]$TotalTimeInBed) # all 242 participant-days with 1440 or more sedentary minutes also had 0 minutes in bed
+```
+
+...and participant-days with 0 steps
+```{r}
+  length(daily[daily$StepTotal==0,]$Id)
+    unique(daily[daily$StepTotal==0,]$TotalTimeInBed) # all 233 participant-days with 0 steps also had 0 minutes in bed
+```
+
+...and participant-days with 0 minutes of light intensity activity
+```{r}
+  length(daily[daily$LightlyActiveMinutes==0,]$Id)
+      unique(daily[daily$LightlyActiveMinutes==0,]$TotalTimeInBed) # all 143 participant-days with 0 minutes of LPA also had 0 minutes in bed
+```
+
+
+Conclusion: Will delete all participant-days with 0 minutes in bed/asleep -- resolves missingness in other variables (e.g., sedentary time == 1440 (no other movement categories captured) and steps (0 steps within a day))
+```{r}
+  daily<-daily[daily$TotalTimeInBed!=0,]
+```
+
 ## Write CSV file for TOP
 
 ```{r}
@@ -997,14 +1079,4 @@ Calculate average daily clicks and engagements per participant, and per particip
   write.csv(daily,"daily-TOP-CSEP.csv",row.names = FALSE)
 ```
 
-```{r}
-  daily$test<-daily$SedentaryMinutes+
-              daily$TotalTimeInBed+
-              daily$LightlyActiveMinutes+
-              daily$FairlyActiveMinutes+
-              daily$VeryActiveMinutes
-  plot(daily$test)
-  daily$test2<-1440-daily$SedentaryMinutes
-  
-```
 

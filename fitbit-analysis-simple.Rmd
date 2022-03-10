@@ -1,0 +1,822 @@
+---
+title: "fitbit analysis for CSEP project"
+author: "Shelby Sturrock"
+date: "09/03/2022"
+output: 
+  html_document:
+    keep_md: true
+---
+
+```{r setup, include=FALSE, results=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(foreign)
+library(readxl)
+library(gridExtra)
+library(sjPlot)
+knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
+```
+
+# Fitbit analysis
+
+**Summary**
+
+This script contains a few simplified figures for the CSEP 24 hour movement guideline proof of concept paper. 
+
+**Data processing** steps include: 
+
+1. First, **remove participant-days of data where "TotalTimeInBed" is 0**. Eliminating these records (n~500, need to confirm) also removes all participants-days with 0 total steps, 0 minutes of light physical activity and 1440 minutes of sedentary time. This step happens in the "fitbit-wrangling" file and the records are omitted from the TOP. 
+2. Second, **remove participant-days with less than 10 hours of wear time**. Minute-level data was identified as "non-wear time" if the current minute and the previous 9 minutes each had 0 steps, missing heart rate AND were flagged as having "sedentary" intensity. If these conditions are met, all 10 minutes are flagged as "non-wear time". If at least one minute has >0 steps, non-sedentary intensity OR a heart rate value, none of the 10 minutes are flagged as non-wear time. Total non-wear minutes were then summed per participant and day, and days with > 840 minutes of non-wear time were excluded from analysis (n=3). This steps occurs within this script. 
+3. Third, **remove the first day of data (October 18, 2021)** because the mean number of non-wear minutes across participant was an order of magnitude higher than the second highest day (~650 minutes vs. ~62 minutes), which led to artificially low light PA, and sleep, but inflated sedentary time. 
+
+**Analysis includes:**
+
+1. Scatter plot and trend (using LOESS) of each movement behaviour (a) over the study period, and (b) seperately before, during and after the intervention period. 
+2. Box plot of each behaviour type before, during and after the intervention period. 
+3. Trend in daily clicks (any) vs. daily minutes of each movemebt behaviour before, during and after the intervention period (where trends are illustrated using LOESS curves fit to data from each period seperately)
+4. Trend in daily clicks (on intervention content specifically) vs. daily minutes of each movement behaviour within the intervention period specifically (again using LOESS curves to illustrate trends) 
+
+
+### Read in and format data
+
+Read in data
+```{r}
+daily <- read.csv("daily-TOP-CSEP.csv")
+str(daily$date)
+```
+
+Make sure that the intervention variable and the weekday variables are formatted as factors where the intervention periods and weekdays are ordered correctly (pre, intervention, post; monday, tuesday, etc.)
+```{r}
+  daily$weekday<-factor(daily$weekday,
+                        levels=c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"))
+  daily$intervention<-factor(daily$intervention,levels=c("pre","intervention","post"))
+  daily$date<-as.Date(daily$date)
+  str(daily$weekday)
+  str(daily$intervention)
+```
+
+Create person-day-level for plots. Currently, the "daily" dataframe has one row per person-day-article, so if someone engages with two different articles, they have two rows in the dataframe. I want a maximum of one row per person per day for data exploration. 
+```{r}
+  dailyForPlots<-daily[!is.na(daily$totalMVPA),] %>% select(-title,-intervention_content,-featured_content,
+                                                            -pubdate,-weekofpublish,
+                                                            -type,-click,-engage,-clickInt,-engageInt)
+  dailyForPlots<-distinct(dailyForPlots)
+# tentative: remove particiapnt-days with less than 10 hours of wear time (so 14 hours or more of non-wear time)
+  # 14 * 60 = 840 (840 minutes or more of non-wear time) 
+```
+
+Remove days where time in bed = 0 
+```{r}
+  dailyForPlots<-dailyForPlots[dailyForPlots$TotalTimeInBed!=0,]
+```
+
+Remove days with < 10 hours of wear time (14+ hours of non-wear time)
+```{r}
+  length(dailyForPlots[dailyForPlots$nonWearMinutes >= 840,]$Id)
+  dailyForPlots<-dailyForPlots[dailyForPlots$nonWearMinutes < 840,]
+```
+
+Explore the mean (and max) minutes of non-wear time by day. Numbers on the first day may be influenced by low wear time (e.g., very high sedentary time, low light, low sleep, etc.). Mean non-wear time is an order of magnitude higher on the first day vs. the second highest day (towards the end of the study/during the post-intervention period). As a resul, will also deleted the first day of data
+```{r}
+  nonWear<-dailyForPlots %>% select(date,nonWearMinutes) %>% group_by(date) %>% arrange(date) %>%
+                             mutate(meanNonWear=mean(nonWearMinutes),
+                                    maxNonWear=max(nonWearMinutes)) %>% 
+                             select(-nonWearMinutes) %>% distinct() %>% arrange(desc(meanNonWear))
+  nonWear
+  dailyForPlots<-dailyForPlots[dailyForPlots$date>min(dailyForPlots$date),]
+```
+
+Explore total minutes of data contributed per particiant day. Should be ~1440 minutes
+```{r,echo=FALSE,fig.show="hold"}
+  dailyForPlots$test<-dailyForPlots$totalMVPA+dailyForPlots$LightlyActiveMinutes+dailyForPlots$SedentaryMinutes+
+                      dailyForPlots$TotalMinutesAsleep
+  dailyForPlots$test2<-dailyForPlots$totalMVPA+dailyForPlots$LightlyActiveMinutes+dailyForPlots$SedentaryMinutes+
+                       dailyForPlots$TotalTimeInBed
+  totalMinutesAsleep<-ggplot(dailyForPlots,aes(x=test)) + 
+                        geom_bar(fill="#619CFF") + 
+                        theme_classic() +
+                        labs(x="Total minutes of data\n(MVPA + light + sedentary + time asleep)",
+                             y="Frequency",
+                             title="Minutes of data per day and\n participant") +
+                        theme(axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",
+                                                        hjust=0.5))
+  totalMinutesInBed<-ggplot(dailyForPlots,aes(x=test2)) + 
+                        geom_bar(fill="#619CFF") + 
+                        theme_classic() +
+                        labs(x="Total minutes of data\n(MVPA + light + sedentary + time in bed)",
+                             y="Frequency",
+                             title="Minutes of data per day and\n participant") +
+                        theme(axis.title.x = element_text(face="bold"),
+                              axis.title.y = element_text(face="bold"),
+                              plot.title = element_text(face="bold",
+                                                        hjust=0.5))
+  grid.arrange(totalMinutesAsleep,totalMinutesInBed,ncol=2)
+```
+
+## MVPA
+
+<!-- #### Distribution/frequency of MVPA - with and without including 0s -->
+<!-- First, lets assess the distribution of MVPA across participant-days. Similar to the engagement metrics, minutes of MVPA is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if MVPA (right).  -->
+```{r,echo=FALSE}
+  # summary(dailyForPlots$totalMVPA)
+  # freqMVPA<-ggplot(dailyForPlots,aes(x=totalMVPA)) + 
+  #                         geom_bar(fill="#619CFF") + 
+  #                         theme_classic() +
+  #                         labs(x="Daily minutes of MVPA",
+  #                              y="Frequency",
+  #                              title="Minutes of MVPA per day and\nparticipant") +
+  #                         theme(axis.title.x = element_text(face="bold"),
+  #                               axis.title.y = element_text(face="bold"),
+  #                               plot.title = element_text(face="bold",
+  #                                                         hjust=0.5))
+  # freqMVPA_noZeros<-ggplot(dailyForPlots[dailyForPlots$totalMVPA>0,],aes(x=totalMVPA)) + 
+  #                         geom_bar(fill="#619CFF") + 
+  #                         theme_classic() +
+  #                         labs(x="Daily minutes of MVPA",
+  #                              y="Frequency",
+  #                              title="Minutes of MVPA per day and\n participant (excluding values of 0)") +
+  #                         theme(axis.title.x = element_text(face="bold"),
+  #                               axis.title.y = element_text(face="bold"),
+  #                               plot.title = element_text(face="bold",
+  #                                                         hjust=0.5))
+  # grid.arrange(freqMVPA,freqMVPA_noZeros,ncol=2)
+```
+
+### Plot of minutes of MVPA per day over time
+
+#### Trend over study period
+
+Largely stable over time, slight bow (where lower at the beginning and end)
+```{r,echo=FALSE,warning=FALSE,fig.show="hold"}
+  dailyMVPA<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA))+
+             geom_point(data=dailyForPlots,aes(x=date,y=totalMVPA,color=intervention),alpha=0.25) + 
+             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+             theme_classic() +
+             geom_smooth(color="black",method="loess",formula="y~x") + 
+             labs(x="Date",
+                  y="Daily minutes of MVPA",
+                  title="Daily minutes of MVPA, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))
+  dailyMVPA
+```
+
+#### Trend before, during and after intervention
+
+Largely stable over time, particularly during the intervention period. Slightly lower in post-period. 
+```{r,echo=FALSE,fig.show="hold"}
+  dailyMVPAint<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA,color=intervention,group=intervention))+
+                       geom_point(alpha=0.25) + 
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                       theme_classic() +
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],method="loess",formula="y~x") + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],method="loess",formula="y~x") + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],method="loess",formula="y~x") + 
+                                             labs(x="Date",
+                                                  y="Daily minutes of MVPA",
+                                                  title="Daily minutes of MVPA:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailyMVPAint
+```
+
+<!-- #### Boxplot of MVPA per day and participant, by week -->
+```{r,echo=FALSE}
+  # boxplotMVPA<-ggplot(dailyForPlots,aes(x=weekStart,y=totalMVPA,fill=intervention))+
+  #                      geom_jitter(alpha=0.05) +
+  #                      geom_boxplot() +
+  #                      #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+  #                      scale_fill_manual(values=c("#FFC833","#81DA66","#619CFF")) +
+  #                      theme_classic() +
+  #                     labs(x="Date",
+  #                          y="Daily minutes of MVPA",
+  #                          title="Daily minutes of MVPA:\nBefore, during and after the intervention period")+
+  #                     theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                           axis.title.x = element_text(face="bold"),
+  #                           axis.title.y = element_text(face="bold"),
+  #                           plot.title = element_text(face="bold",hjust=0.5)) 
+  # boxplotMVPA
+```
+
+## LPA
+
+<!-- #### Distribution/frequency of LPA - with and without including 0s -->
+<!-- First, lets assess the distribution of LPA across participant-days. Similar to the engagement metrics, minutes of LPA is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if LPA (right).  -->
+```{r,echo=FALSE}
+  # summary(dailyForPlots$LightlyActiveMinutes)
+  # freqLPA<-ggplot(dailyForPlots,aes(x=LightlyActiveMinutes)) + 
+  #                         geom_bar(fill="#619CFF") + 
+  #                         theme_classic() +
+  #                         labs(x="Daily minutes of LPA",
+  #                              y="Frequency",
+  #                              title="Minutes of LPA per day and\nparticipant") +
+  #                         theme(axis.title.x = element_text(face="bold"),
+  #                               axis.title.y = element_text(face="bold"),
+  #                               plot.title = element_text(face="bold",
+  #                                                         hjust=0.5))
+  # freqLPA
+```
+
+### Plot of minutes of LPA per day over time -- overall and comparing engagers and non-engagers
+
+#### Trend over study period
+
+Slight downward trend in lightly active minutes over time (looks driven by post-period)
+```{r,echo=FALSE,warning=FALSE,fig.show="hold"}
+  dailyLPA<-ggplot(dailyForPlots,aes(x=date,y=LightlyActiveMinutes))+
+             geom_point(data=dailyForPlots,aes(x=date,y=LightlyActiveMinutes,color=intervention),alpha=0.25) + 
+             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+             theme_classic() +
+             geom_smooth(color="black",method="loess",formula="y~x") + 
+             labs(x="Date",
+                  y="Daily minutes of LPA",
+                  title="Daily minutes of LPA, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))
+  dailyLPA
+```
+
+#### Trend before, during and after intervention
+
+Largely stable over time, particularly during the intervention period. Slightly lower in post-period.  
+```{r,echo=FALSE,fig.show="hold"}
+  dailyLPAint<-ggplot(dailyForPlots,aes(x=date,y=LightlyActiveMinutes,color=intervention,group=intervention))+
+                       geom_point(alpha=0.25) + 
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                       theme_classic() +
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],method="loess",formula="y~x") + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],method="loess",formula="y~x") + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],method="loess",formula="y~x") + 
+                                             labs(x="Date",
+                                                  y="Daily minutes of LPA",
+                                                  title="Daily minutes of LPA:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailyLPAint
+```
+
+<!-- #### Boxplot of LPA per day and participant, by week -->
+```{r,echo=FALSE}
+  # boxplotLPA<-ggplot(dailyForPlots,aes(x=weekStart,y=LightlyActiveMinutes,fill=intervention))+
+  #                      geom_jitter(alpha=0.05) +
+  #                      geom_boxplot() +
+  #                      #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+  #                      scale_fill_manual(values=c("#FFC833","#81DA66","#619CFF")) +
+  #                      theme_classic() +
+  #                     labs(x="Date",
+  #                          y="Daily minutes of light physical activity",
+  #                          title="Daily minutes of light physical activity:\nBefore, during and after the intervention period")+
+  #                     theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                           axis.title.x = element_text(face="bold"),
+  #                           axis.title.y = element_text(face="bold"),
+  #                           plot.title = element_text(face="bold",hjust=0.5)) 
+  # boxplotLPA
+```
+
+
+## Sedentary Behaviour
+
+<!-- #### Distribution/frequency of SB - with and without including 0s -->
+<!-- First, lets assess the distribution of SB across participant-days. Similar to the engagement metrics, minutes of SB is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if SB (right).  -->
+```{r,echo=FALSE,fig.show="hold"}
+  # summary(dailyForPlots$SedentaryMinutes)
+  # freqSB<-ggplot(dailyForPlots,aes(x=SedentaryMinutes)) + 
+  #                         geom_bar(fill="#619CFF") + 
+  #                         theme_classic() +
+  #                         labs(x="Daily minutes of SB",
+  #                              y="Frequency",
+  #                              title="Minutes of SB per day and\nparticipant") +
+  #                         theme(axis.title.x = element_text(face="bold"),
+  #                               axis.title.y = element_text(face="bold"),
+  #                               plot.title = element_text(face="bold",
+  #                                                         hjust=0.5))
+  # freqSB
+```
+
+### Plot of minutes of SB per day over time -- overall and comparing engagers and non-engagers
+
+#### Trend over study period
+
+Slight bow (highest at beginning and end) but more or less stable over time. 
+```{r,echo=FALSE,warning=FALSE,fig.show="hold"}
+  dailySB<-ggplot(dailyForPlots,aes(x=date,y=SedentaryMinutes))+
+             geom_point(data=dailyForPlots,aes(x=date,y=SedentaryMinutes,color=intervention),alpha=0.25) + 
+             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+             theme_classic() +
+             geom_smooth(color="black",method="loess",formula="y~x") + 
+             labs(x="Date",
+                  y="Daily minutes of SB",
+                  title="Daily minutes of SB, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))
+  dailySB
+```
+
+#### Trend before, during and after intervention
+
+Sedentary time appeared to decrease slightly during the pre-period, otherwise stable over time.  
+```{r,echo=FALSE,fig.show="hold"}
+  dailySBint<-ggplot(dailyForPlots,aes(x=date,y=SedentaryMinutes,color=intervention,group=intervention))+
+                       geom_point(alpha=0.25) + 
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                       theme_classic() +
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],method="loess",formula="y~x") + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],method="loess",formula="y~x") + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],method="loess",formula="y~x") + 
+                                             labs(x="Date",
+                                                  y="Daily minutes of SB",
+                                                  title="Daily minutes of SB:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailySBint
+```
+
+<!-- #### Boxplot of SB per day and participant, by week -->
+```{r,echo=FALSE}
+  # boxplotSB<-ggplot(dailyForPlots,aes(x=weekStart,y=SedentaryMinutes,fill=intervention))+
+  #                      geom_jitter(alpha=0.05) +
+  #                      geom_boxplot(outliers=FALSE) +
+  #                      #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+  #                      scale_fill_manual(values=c("#FFC833","#81DA66","#619CFF")) +
+  #                      theme_classic() +
+  #                     labs(x="Date",
+  #                          y="Daily minutes of sedentary time",
+  #                          title="Daily minutes of sedentary time:\nBefore, during and after the intervention period")+
+  #                     theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                           axis.title.x = element_text(face="bold"),
+  #                           axis.title.y = element_text(face="bold"),
+  #                           plot.title = element_text(face="bold",hjust=0.5)) 
+  # boxplotSB
+```
+
+
+
+## Sleep
+
+<!-- #### Distribution/frequency of Sleep - with and without including 0s -->
+<!-- First, lets assess the distribution of Sleep across participant-days. Similar to the engagement metrics, minutes of Sleep is 0 on the majority of participant days. It is easier to see the distribution if you exclude participant-days with 0 minutes if Sleep (right).  -->
+```{r,echo=FALSE}
+  # summary(dailyForPlots$TotalTimeInBed)
+  # freqSleep<-ggplot(dailyForPlots,aes(x=TotalTimeInBed)) + 
+  #                         geom_bar(fill="#619CFF") + 
+  #                         theme_classic() +
+  #                         labs(x="Daily minutes of Sleep",
+  #                              y="Frequency",
+  #                              title="Minutes of Sleep per day and\nparticipant") +
+  #                         theme(axis.title.x = element_text(face="bold"),
+  #                               axis.title.y = element_text(face="bold"),
+  #                               plot.title = element_text(face="bold",
+  #                                                         hjust=0.5))
+  # freqSleep
+```
+
+### Plot of minutes of Sleep per day over time -- overall and comparing engagers and non-engagers
+
+#### Trend over study period
+
+Sleep appears to increase slightly over time.
+```{r,echo=FALSE,warning=FALSE,fig.show="hold"}
+  dailySleep<-ggplot(dailyForPlots,aes(x=date,y=TotalTimeInBed))+
+             geom_point(data=dailyForPlots,aes(x=date,y=TotalTimeInBed,color=intervention),alpha=0.25) + 
+             scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+             theme_classic() +
+             geom_smooth(color="black",method="loess",formula="y~x") + 
+             labs(x="Date",
+                  y="Daily minutes of Sleep",
+                  title="Daily minutes of Sleep, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))
+  dailySleep
+```
+
+#### Trend before, during and after intervention
+
+Fit a loess curve to each of the three periods. Appears that sleep increased during each period. 
+```{r,echo=FALSE,fig.show="hold"}
+  dailySleepint<-ggplot(dailyForPlots,aes(x=date,y=TotalTimeInBed,color=intervention,group=intervention))+
+                       geom_point(alpha=0.25) + 
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       scale_color_manual(values=c("#619CFF","#FFC833","#81DA66")) +
+                       theme_classic() +
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],method="loess",formula="y~x") + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],method="loess",formula="y~x") + 
+                       geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],method="loess",formula="y~x") + 
+                                             labs(x="Date",
+                                                  y="Daily minutes of Sleep",
+                                                  title="Daily minutes of Sleep:\nBefore, during and after the intervention period")+
+                                             theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                                                   axis.title.x = element_text(face="bold"),
+                                                   axis.title.y = element_text(face="bold"),
+                                                   plot.title = element_text(face="bold",hjust=0.5)) 
+  dailySleepint
+```
+
+<!-- #### Boxplot of SB per day and participant, by week -->
+```{r,echo=FALSE}
+  # boxplotSleep<-ggplot(dailyForPlots,aes(x=weekStart,y=TotalTimeInBed,fill=intervention))+
+  #                      geom_jitter(alpha=0.05) +
+  #                      geom_boxplot() +
+  #                      #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+  #                      scale_fill_manual(values=c("#FFC833","#81DA66","#619CFF")) +
+  #                      theme_classic() +
+  #                     labs(x="Date",
+  #                          y="Daily minutes of time in bed",
+  #                          title="Daily minutes of time in bed:\nBefore, during and after the intervention period")+
+  #                     theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+  #                           axis.title.x = element_text(face="bold"),
+  #                           axis.title.y = element_text(face="bold"),
+  #                           plot.title = element_text(face="bold",hjust=0.5)) 
+  # boxplotSleep
+```
+
+## High-level: All movement behaviours over time 
+
+Plot of all movement behaviours over time
+```{r,echo=FALSE,warning=FALSE,fig.show="hold"}
+  dailyLong<-pivot_longer(dailyForPlots,cols=c("totalMVPA","LightlyActiveMinutes","SedentaryMinutes","TotalTimeInBed"),
+                          names_to="behaviour",
+                          values_to="minutes")
+  dailyLong$behaviour<-ifelse(dailyLong$behaviour=="totalMVPA","MVPA",
+                              ifelse(dailyLong$behaviour=="LightlyActiveMinutes","LPA",
+                                     ifelse(dailyLong$behaviour=="SedentaryMinutes","Sedentary",
+                                            ifelse(dailyLong$behaviour=="TotalTimeInBed","Sleep",NA))))
+  dailyLong$behaviour<-factor(dailyLong$behaviour,levels=c("Sleep","Sedentary","LPA","MVPA"))
+  dailyLong$period<-ifelse(dailyLong$intervention=="pre","Before",
+                    ifelse(dailyLong$intervention=="intervention","During",
+                    ifelse(dailyLong$intervention=="post","After",NA)))
+  dailyLong$period<-factor(dailyLong$period,levels=c("Before","During","After"))
+  summary(as.factor(dailyLong$period))
+  dailyBehaviours<-ggplot(dailyLong,aes(x=date,y=minutes,group=behaviour,color=behaviour))+
+             geom_smooth(method="loess",formula="y~x") + # blue
+             scale_color_manual(values=c("#FF8333","#FFC833","#81DA66","#619CFF"))+
+             scale_fill_manual(values=c("#FF8333","#FFC833","#81DA66","#619CFF"))+
+             theme_classic()+
+             labs(x="Date",
+                  y="Daily minutes of MVPA",
+                  title="Daily minutes of MVPA, per participant, in the pre-intervention,\nintervention and post-intervention periods") +
+             theme(axis.title.x = element_text(face="bold"),
+                   axis.title.y = element_text(face="bold"),
+                   plot.title = element_text(face="bold",
+                                             hjust=0.5))+
+             geom_vline(xintercept = min(dailyForPlots[dailyForPlots$intervention=="intervention",]$date))+
+             geom_vline(xintercept = max(dailyForPlots[dailyForPlots$intervention=="intervention",]$date))
+  dailyBehaviours
+```
+
+```{r,echo=FALSE,results=FALSE,fig.show="hold"}
+  boxplotBehavioursPeriod<-ggplot(dailyLong,aes(x=period,y=minutes,fill=period))+
+                       facet_wrap(dailyLong$behaviour,nrow=1)+
+                       #geom_jitter(alpha=0.05) +
+                       geom_boxplot() +
+                       scale_color_manual(values=c(#"#FF8333",
+                                                  "#FFC833","#81DA66","#619CFF"))+
+                       scale_fill_manual(values=c(#"#FF8333",
+                                                  "#FFC833","#81DA66","#619CFF"))+
+                       #viridis::scale_color_viridis(discrete=TRUE, option="viridis") +
+                       theme_classic() +
+                    labs(x="Date",
+                         y="Daily minutes of time in bed",
+                         #title="Daily minutes spent in different movement behaviours:\nBefore, during and after the intervention period",
+                         fill="Intervention Period")+
+                    theme(axis.text.x = element_text(angle=90,vjust = 0.5, hjust=1),
+                          axis.title.x = element_text(face="bold"),
+                          axis.title.y = element_text(face="bold"),
+                          plot.title = element_text(face="bold",hjust=0.5),
+                          legend.title = element_text(face="bold"),
+                          strip.text = element_text(face="bold")) 
+  boxplotBehavioursPeriod
+```
+
+# Plots
+
+## Line Graph - with engagement and clicks overlayed
+
+### Any clicks across all three periods
+
+The following figures display trends in **clicks on ANY app content compared to trends in each movement behaviour over the course of the study period** (including before, during and after the intervention). The y axis on the left concerns the movement behaviour (colored lines) and the y axis on the right concerns daily clicks on intervention content (black line). 
+
+Re-scale clicks and engagement for plots of each of the four movement behaviours
+```{r}
+# MVPA
+  dailyForPlots$clickMVPA<-dailyForPlots$dayCountClickAny*(mean(dailyForPlots$totalMVPA)/mean(dailyForPlots$dayCountClickAny))
+  dailyForPlots$engageMVPA<-dailyForPlots$dayCountEngageAny*(mean(dailyForPlots$totalMVPA)/mean(dailyForPlots$dayCountEngageAny))
+
+# Lightly Active Minutes
+  dailyForPlots$clickLPA<-dailyForPlots$dayCountClickAny*
+                          (mean(dailyForPlots$LightlyActiveMinutes)/mean(dailyForPlots$dayCountClickAny))
+  dailyForPlots$engageLPA<-dailyForPlots$dayCountEngageAny*
+                           (mean(dailyForPlots$LightlyActiveMinutes)/mean(dailyForPlots$dayCountEngageAny))
+  
+# Sedentary Behavior
+  dailyForPlots$clickSB<-dailyForPlots$dayCountClickAny*
+                          (mean(dailyForPlots$SedentaryMinutes)/mean(dailyForPlots$dayCountClickAny))
+  dailyForPlots$engageSB<-dailyForPlots$dayCountEngageAny*
+                          (mean(dailyForPlots$SedentaryMinutes)/mean(dailyForPlots$dayCountEngageAny))
+  
+# Sleep 
+  dailyForPlots$clickSleep<-dailyForPlots$dayCountClickAny*
+                            (mean(dailyForPlots$TotalTimeInBed)/mean(dailyForPlots$dayCountClickAny))
+  dailyForPlots$engageSleep<-dailyForPlots$dayCountEngageAny*
+                            (mean(dailyForPlots$TotalTimeInBed)/mean(dailyForPlots$dayCountEngageAny))
+```
+
+<!-- Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.) -->
+```{r,echo=FALSE}
+# dates<-dailyForPlots %>% select(date,intervention) %>% distinct() %>% arrange(date) %>% mutate(nDate=row_number())
+```
+
+#### MVPA
+```{r,echo=FALSE,fig.show="hold"}
+  lineMVPA<-ggplot(dailyForPlots,aes(x=date,y=totalMVPA))+
+              # clicks
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickMVPA),color="black") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickMVPA),color="black") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickMVPA),color="black") +
+              # MVPA
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],
+                            method="loess",formula="y~x",
+                            color="#619CFF",fill="#619CFF") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],
+                            method="loess",formula="y~x",
+                            color="#619CFF",fill="#619CFF") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],
+                            method="loess",formula="y~x",
+                            color="#619CFF",fill="#619CFF") +
+               theme_classic()+
+               labs(x="Date",
+                    y="Minutes",
+                    title="MVPA") +
+               theme(axis.title.x = element_text(face="bold"),
+                     axis.title.y = element_text(face="bold"),
+                     plot.title = element_text(face="bold",
+                                               hjust=0.5))+
+  scale_y_continuous(
+    sec.axis = sec_axis(trans=~./(mean(dailyForPlots$totalMVPA)/mean(dailyForPlots$dayCountClickInt)), name = "Clicks"))
+  lineMVPA
+```
+
+#### LPA
+```{r,echo=FALSE,fig.show="hold"}
+  lineLPA<-ggplot(dailyForPlots,aes(x=date,y=LightlyActiveMinutes))+
+              # clicks
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickLPA),color="black") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickLPA),color="black") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickLPA),color="black") +
+              # LPA
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],
+                            method="loess",formula="y~x",
+                            color="#81DA66",fill="#81DA66") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],
+                            method="loess",formula="y~x",
+                            color="#81DA66",fill="#81DA66") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],
+                            method="loess",formula="y~x",
+                            color="#81DA66",fill="#81DA66") +
+               theme_classic()+
+               labs(x="Date",
+                    y="Minutes",
+                    title="Light intensity activity") +
+               theme(axis.title.x = element_text(face="bold"),
+                     axis.title.y = element_text(face="bold"),
+                     plot.title = element_text(face="bold",
+                                               hjust=0.5))+
+  scale_y_continuous(
+    sec.axis = sec_axis(trans=~./(mean(dailyForPlots$LightlyActiveMinutes)/mean(dailyForPlots$dayCountClickInt)), name = "Clicks"))
+  lineLPA
+```
+
+#### Sedentary 
+```{r,echo=FALSE,fig.show="hold"}
+  lineSB<-ggplot(dailyForPlots,aes(x=date,y=SedentaryMinutes))+
+              # clicks
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickSB),color="black") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickSB),color="black") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickSB),color="black") +
+              # SB
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],
+                            method="loess",formula="y~x",
+                            color="#FFC833",fill="#FFC833") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],
+                            method="loess",formula="y~x",
+                            color="#FFC833",fill="#FFC833") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],
+                            method="loess",formula="y~x",
+                            color="#FFC833",fill="#FFC833") +
+               theme_classic()+
+               labs(x="Date",
+                    y="Minutes",
+                    title="Sedentary behaviour") +
+               theme(axis.title.x = element_text(face="bold"),
+                     axis.title.y = element_text(face="bold"),
+                     plot.title = element_text(face="bold",
+                                               hjust=0.5))+
+  scale_y_continuous(
+    sec.axis = sec_axis(trans=~./(mean(dailyForPlots$SedentaryMinutes)/mean(dailyForPlots$dayCountClickInt)), name = "Clicks"))
+  lineSB
+```
+
+#### Sleep 
+```{r,echo=FALSE,fig.show="hold"}
+  lineSleep<-ggplot(dailyForPlots,aes(x=date,y=TotalTimeInBed))+
+              # clicks
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickSleep),color="black") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickSleep),color="black") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],
+                            method="loess",formula="y~x",
+                            aes(x=date,y=clickSleep),color="black") +
+              # Sleep
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="pre",],
+                            method="loess",formula="y~x",
+                            color="#FF8333",fill="#FF8333") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="intervention",],
+                            method="loess",formula="y~x",
+                            color="#FF8333",fill="#FF8333") +
+                geom_smooth(data=dailyForPlots[dailyForPlots$intervention=="post",],
+                            method="lm",formula="y~x",
+                            color="#FF8333",fill="#FF8333") +
+               theme_classic()+
+               labs(x="Date",
+                    y="Minutes",
+                    title="Time in bed") +
+               theme(axis.title.x = element_text(face="bold"),
+                     axis.title.y = element_text(face="bold"),
+                     plot.title = element_text(face="bold",
+                                               hjust=0.5))+
+  scale_y_continuous(
+    sec.axis = sec_axis(trans=~./(mean(dailyForPlots$TotalTimeInBed)/mean(dailyForPlots$dayCountClickInt)), name = "Clicks"))
+  lineSleep
+```
+#### Panel figure
+```{r,echo=FALSE,fig.show="hold"}
+ grid.arrange(lineMVPA,lineLPA,lineSB,lineSleep,ncol=2)
+```
+
+
+### Intervention clicks during intervention period
+
+The following figures display trends in **clicks on intervention content compared to trends in each movement behaviour over the course of the intervention period**. The y axis on the left concerns the movement behaviour (colored lines) and the y axis on the right concerns daily clicks on intervention content (black line). 
+
+Generate click and engagement variables that are rescaled such that the mean = mean of the respective behaviour for plotting
+```{r}
+  dailyInt<-dailyForPlots[dailyForPlots$intervention=="intervention",]
+
+# MVPA
+  dailyInt$clickIntMVPA<-dailyInt$dayCountClickInt*
+                               (mean(dailyInt$totalMVPA)/mean(dailyInt$dayCountClickInt))
+  dailyInt$engageIntMVPA<-dailyInt$dayCountEngageAny*
+                               (mean(dailyInt$totalMVPA)/mean(dailyInt$dayCountEngageAny))
+
+# Lightly Active Minutes
+  dailyInt$clickIntLPA<-dailyInt$dayCountClickInt*
+                          (mean(dailyInt$LightlyActiveMinutes)/mean(dailyInt$dayCountClickInt))
+  dailyInt$engageIntLPA<-dailyInt$dayCountEngageAny*
+                           (mean(dailyInt$LightlyActiveMinutes)/mean(dailyInt$dayCountEngageAny))
+  
+# Sedentary Behavior
+  dailyInt$clickIntSB<-dailyInt$dayCountClickInt*
+                          (mean(dailyInt$SedentaryMinutes)/mean(dailyInt$dayCountClickInt))
+  dailyInt$engageIntSB<-dailyInt$dayCountEngageAny*
+                          (mean(dailyInt$SedentaryMinutes)/mean(dailyInt$dayCountEngageAny))
+  
+# Sleep 
+  dailyInt$clickIntSleep<-dailyInt$dayCountClickInt*
+                            (mean(dailyInt$TotalTimeInBed)/mean(dailyInt$dayCountClickInt))
+  dailyInt$engageIntSleep<-dailyInt$dayCountEngageAny*
+                            (mean(dailyInt$TotalTimeInBed)/mean(dailyInt$dayCountEngageAny))
+```
+
+<!-- Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.) -->
+```{r,echo=FALSE}
+# datesInt<-dailyInt %>% select(date,intervention) %>% distinct() %>% arrange(date) %>% mutate(nDate=row_number())
+# dailyInt<-merge(dailyInt,datesInt,by=c("date"))
+```
+
+#### MVPA
+```{r,echo=FALSE,fig.show="hold"}
+  lineIntMVPA<-ggplot(dailyInt,aes(x=date,y=totalMVPA))+
+               #geom_smooth(data=dailyInt,method="lm",formula="y~x",aes(x=date,y=clickIntMVPA),color="black") +
+               #geom_smooth(method="lm",formula="y~x",color="#619CFF",fill="#619CFF") +
+               geom_smooth(data=dailyInt,method="loess",formula="y~x",aes(x=date,y=clickIntMVPA),color="black") +
+               geom_smooth(method="loess",formula="y~x",color="#619CFF",fill="#619CFF") +
+               theme_classic()+
+               labs(x="Date",
+                    y="Minutes",
+                    title="MVPA") +
+               theme(axis.title.x = element_text(face="bold"),
+                     axis.title.y = element_text(face="bold"),
+                     plot.title = element_text(face="bold",
+                                               hjust=0.5))+
+  scale_y_continuous(
+    sec.axis = sec_axis(trans=~./(mean(dailyInt$totalMVPA)/mean(dailyInt$dayCountClickInt)), name = "Clicks"))
+  lineIntMVPA
+```
+
+#### Lightly active minutes
+```{r,echo=FALSE,fig.show="hold"}
+  lineIntLPA<-ggplot(dailyInt,aes(x=date,y=LightlyActiveMinutes))+
+               #geom_smooth(data=dailyInt,method="lm",formula="y~x",aes(x=date,y=clickIntLPA),color="black") +
+               #geom_smooth(method="lm",formula="y~x",color="#81DA66",fill="#81DA66") +
+               geom_smooth(data=dailyInt,method="loess",formula="y~x",aes(x=date,y=clickIntLPA),color="black") +
+               geom_smooth(method="loess",formula="y~x",color="#81DA66",fill="#81DA66") +
+               theme_classic()+
+               labs(x="Date",
+                    y="Minutes",
+                    title="Light intensity activity") +
+               theme(axis.title.x = element_text(face="bold"),
+                     axis.title.y = element_text(face="bold"),
+                     plot.title = element_text(face="bold",
+                                               hjust=0.5))+
+  scale_y_continuous(
+    sec.axis = sec_axis(trans=~./(mean(dailyInt$LightlyActiveMinutes)/mean(dailyInt$dayCountClickInt)), name = "Clicks"))
+  lineIntLPA
+```
+
+#### Sedentary minutes
+```{r,echo=FALSE,fig.show="hold"}
+  lineIntSB<-ggplot(dailyInt,aes(x=date,y=SedentaryMinutes))+
+               #geom_smooth(data=dailyInt,method="lm",formula="y~x",aes(x=date,y=clickIntSB),color="black") +
+               #geom_smooth(method="lm",formula="y~x",color="#FFC833",fill="#FFC833") +
+                geom_smooth(data=dailyInt,method="loess",formula="y~x",aes(x=date,y=clickIntSB),color="black") +
+                geom_smooth(method="loess",formula="y~x",color="#FFC833",fill="#FFC833") +
+               theme_classic()+
+               labs(x="Date",
+                    y="Minutes",
+                    title="Sedentary minutes") +
+               theme(axis.title.x = element_text(face="bold"),
+                     axis.title.y = element_text(face="bold"),
+                     plot.title = element_text(face="bold",
+                                               hjust=0.5))+
+  scale_y_continuous(
+    sec.axis = sec_axis(trans=~./(mean(dailyInt$SedentaryMinutes)/mean(dailyInt$dayCountClickInt)), name = "Clicks"))
+  lineIntSB
+```
+
+#### Sleep minutes
+```{r,echo=FALSE,fig.show="hold"}
+  lineIntSleep<-ggplot(dailyInt,aes(x=date,y=TotalTimeInBed))+
+               #geom_smooth(data=dailyInt,method="lm",formula="y~x",aes(x=date,y=clickIntSleep),color="black") +
+               #geom_smooth(method="lm",formula="y~x",color="#FF8333",fill="#FF8333") +
+               geom_smooth(data=dailyInt,method="loess",formula="y~x",aes(x=date,y=clickIntSleep),color="black") +
+               geom_smooth(method="loess",formula="y~x",color="#FF8333",fill="#FF8333") +
+               theme_classic()+
+               labs(x="Date",
+                    y="Minutes",
+                    title="Time in bed") +
+               theme(axis.title.x = element_text(face="bold"),
+                     axis.title.y = element_text(face="bold"),
+                     plot.title = element_text(face="bold",
+                                               hjust=0.5))+
+  scale_y_continuous(
+    sec.axis = sec_axis(trans=~./(mean(dailyInt$TotalTimeInBed)/mean(dailyInt$dayCountClickInt)), name = "Clicks"))
+  lineIntSleep
+```
+
+
+#### Panel Figure
+```{r,echo=FALSE,fig.show="hold"}
+ grid.arrange(lineIntMVPA,lineIntLPA,lineIntSB,lineIntSleep,ncol=2)
+```
+

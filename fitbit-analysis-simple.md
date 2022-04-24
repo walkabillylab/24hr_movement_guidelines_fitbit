@@ -2,9 +2,11 @@
 title: "fitbit analysis for CSEP project"
 author: "Shelby Sturrock"
 date: "09/03/2022"
-output: 
+output:
   html_document:
-    keep_md: true
+    keep_md: yes
+  pdf_document: default
+  output: pdf_document
 ---
 
 

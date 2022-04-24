@@ -357,10 +357,6 @@ Mean clicks and engagement is calculated by taking the mean daily click and/or e
                                                             hjust=0.5))
   grid.arrange(clickWeekdayMeanPlot,engageWeekdayMeanPlot,ncol=2)
 ```
-## Total time use
-```{r}
-
-```
 
 
 ## MVPA

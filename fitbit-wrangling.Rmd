@@ -358,7 +358,8 @@ Will set time as non-wear if every value (except calories) is 0 (and intensity i
   minute$nonWearFlag<-ifelse(minute$minuteSteps==0 & minute$minuteIntensity==0 & is.na(minute$minuteHeartRate),1,0)
   minute<-minute %>% arrange(Id,dateTime) %>% group_by(Id) %>% mutate(nonWearMean = zoo::rollapply(nonWearFlag, width=10, 
                                                                                                    align="right", mean, fill=NA))
-# minute$nonWearMean<-ifelse(is.na(minute$nonWearMean),minute$nonWearFlag,minute$nonWearMean) # first 10 observations will be non-wear time for all participants
+  minute$nonWearMean<-ifelse(is.na(minute$nonWearMean),minute$nonWearFlag,minute$nonWearMean) 
+    # first 10 observations will be non-wear time for all participants
 ```
 
 ### Reformat minute-level intensity level, considering non-wear time
@@ -464,7 +465,6 @@ Rename columns in day-level data (so it is clear which columns are minute- vs. d
 ```{r}
   daily<-daily %>% rename(TotalCalories=Calories) %>%
                    relocate(date,.after=Id) 
-  names(daily)
 ```
 
 Create intervention flag in day-level data
@@ -876,77 +876,77 @@ Merge time-varying engagement variables
                         engage_time_varying,by=c("Id","date"),all.x=TRUE))
 ```
 
-## Exploratory: Compare FitBit intensity categorization with alternate approaches. 
+<!-- ## Exploratory: Compare FitBit intensity categorization with alternate approaches.  -->
 
-### Merge age from enagement data with minute-level heart rate data to calcualte various intensity metrics
- 
-Merge minute-level HR with ages
+<!-- ### Merge age from enagement data with minute-level heart rate data to calcualte various intensity metrics -->
+
+<!-- Merge minute-level HR with ages -->
 ```{r}
-  minSimple<-minute[minute$Id!="Study Coordinator QU",
-                               colnames(minute) %in%
-                               c("Id","dateTime","date","minuteHeartRate","minuteIntensity","minuteSteps")]
-  minHR<-merge(minSimple,engage_participant[,colnames(engage_participant) %in% c("Id","Age")],by=c("Id"))
-  minHR<-distinct(minHR)
-  rm(minSimple)
+  # minSimple<-minute[minute$Id!="Study Coordinator QU",
+  #                              colnames(minute) %in%
+  #                              c("Id","dateTime","date","minuteHeartRate","minuteIntensity","minuteSteps")]
+  # minHR<-merge(minSimple,engage_participant[,colnames(engage_participant) %in% c("Id","Age")],by=c("Id"))
+  # minHR<-distinct(minHR)
+  # rm(minSimple)
 ```
 
-### Generate alternative intensity categories using demographics
+<!-- ### Generate alternative intensity categories using demographics -->
 
-#### minuteIntensity1: fitbit categories
+<!-- #### minuteIntensity1: fitbit categories -->
 
-This is a four-level variable. I am assuming that 0 = sedentary, 1 = lightly active, 2 = fairly active, 3 = very active. I am also assuming that fairly active is approximately moderate intensity, very active is approximately vigorous intensity. 
+<!-- This is a four-level variable. I am assuming that 0 = sedentary, 1 = lightly active, 2 = fairly active, 3 = very active. I am also assuming that fairly active is approximately moderate intensity, very active is approximately vigorous intensity.  -->
 ```{r}
-  minHR$minuteIntensity1<-ifelse(minHR$minuteIntensity %in% c("2","3"),"MVPA","non-MVPA")
-  table(minHR$minuteIntensity1)
+  # minHR$minuteIntensity1<-ifelse(minHR$minuteIntensity %in% c("2","3"),"MVPA","non-MVPA")
+  # table(minHR$minuteIntensity1)
 ```
 
-#### minuteIntensity2: 100 steps/minute
+<!-- #### minuteIntensity2: 100 steps/minute -->
 
-based on research from Catrine Tudor-Locke, 100 steps/minute and 130 steps/minute can be used as thresholds for moderate and vigorous physical activity (https://ijbnpa.biomedcentral.com/articles/10.1186/s12966-019-0769-6) 
+<!-- based on research from Catrine Tudor-Locke, 100 steps/minute and 130 steps/minute can be used as thresholds for moderate and vigorous physical activity (https://ijbnpa.biomedcentral.com/articles/10.1186/s12966-019-0769-6)  -->
 ```{r}
-  minHR$minuteIntensity2<-ifelse(minHR$minuteSteps>100,"MVPA","non-MVPA")
-  table(minHR$minuteIntensity2) # fewer MVPA minutes using this vs. the fitbit categories
+  # minHR$minuteIntensity2<-ifelse(minHR$minuteSteps>100,"MVPA","non-MVPA")
+  # table(minHR$minuteIntensity2) # fewer MVPA minutes using this vs. the fitbit categories
 ```
 
-#### minuteIntensity3: Karvonen formula
+<!-- #### minuteIntensity3: Karvonen formula -->
 
-Karvonen formula estimates: calculate heart rate resevere by taking maximum - resting heart rate. We then calculate the threshold HR (approximately corresponding to MVPA) by taking resting heart rate + heart rate reserve (maximum minus resting), multiplied by 0.4 (40%). Max is calculated by taking 220 minus age, and resting is estimated as the median HR among records under 80 bpm for that particular participant (https://bcmj.org/articles/science-exercise-prescription-martti-karvonen-and-his-contributions)
+<!-- Karvonen formula estimates: calculate heart rate resevere by taking maximum - resting heart rate. We then calculate the threshold HR (approximately corresponding to MVPA) by taking resting heart rate + heart rate reserve (maximum minus resting), multiplied by 0.4 (40%). Max is calculated by taking 220 minus age, and resting is estimated as the median HR among records under 80 bpm for that particular participant (https://bcmj.org/articles/science-exercise-prescription-martti-karvonen-and-his-contributions) -->
 ```{r}
 # heart rate reserve = max - resting (how to determine resting heart rate?) (mean/median of values less than 80 as resting heart rate)
 # resting + (max-resting)*0.4
 # 60 + (140)*0.4 = 116
-  estRHR<-minHR[!is.na(minHR$minuteHeartRate) & minHR$minuteHeartRate<80,]
-  estRHR<-estRHR %>% select(Id,minuteHeartRate)
-  estRHR<-estRHR %>% group_by(Id) %>% mutate(meanRHR=format(round(mean(minuteHeartRate),0),nsmall=0),
-                                             medianRHR=median(minuteHeartRate)) %>% 
-                                      select(Id,meanRHR,medianRHR)
-  estRHR<-distinct(estRHR)
-  minHR<-merge(minHR,estRHR,by="Id")
-  minHR$thresholdHR<-(minHR$medianRHR+(((220-minHR$Age)-minHR$medianRHR)*0.4))
-  minHR$minuteIntensity3<-ifelse(minHR$minuteHeartRate >= minHR$thresholdHR,"MVPA","non-MVPA")
-  table(minHR$minuteIntensity3) # fewer using this method
+  # estRHR<-minHR[!is.na(minHR$minuteHeartRate) & minHR$minuteHeartRate<80,]
+  # estRHR<-estRHR %>% select(Id,minuteHeartRate)
+  # estRHR<-estRHR %>% group_by(Id) %>% mutate(meanRHR=format(round(mean(minuteHeartRate),0),nsmall=0),
+  #                                            medianRHR=median(minuteHeartRate)) %>% 
+  #                                     select(Id,meanRHR,medianRHR)
+  # estRHR<-distinct(estRHR)
+  # minHR<-merge(minHR,estRHR,by="Id")
+  # minHR$thresholdHR<-(minHR$medianRHR+(((220-minHR$Age)-minHR$medianRHR)*0.4))
+  # minHR$minuteIntensity3<-ifelse(minHR$minuteHeartRate >= minHR$thresholdHR,"MVPA","non-MVPA")
+  # table(minHR$minuteIntensity3) # fewer using this method
 ```
 
-#### comparison of various intensity categorizations
+<!-- #### comparison of various intensity categorizations -->
 
 ```{r}
 # fitbit vs. 100 steps/min
-  test<-table(minHR$minuteIntensity1,minHR$minuteIntensity2)
-  chisq.test(test)
+  # test<-table(minHR$minuteIntensity1,minHR$minuteIntensity2)
+  # chisq.test(test)
 ```
 
-There is not a lot of agreement here... more minutes categorized as 2/3 intensity were flagged as non-MVPA than MVPA. 
+<!-- There is not a lot of agreement here... more minutes categorized as 2/3 intensity were flagged as non-MVPA than MVPA.  -->
 ```{r}
 # fitbit vs. hr one steps/min
-  test2<-table(minHR$minuteIntensity1,minHR$minuteIntensity3)
-  chisq.test(test2)
+  # test2<-table(minHR$minuteIntensity1,minHR$minuteIntensity3)
+  # chisq.test(test2)
 ```
 
-Next steps: Replace chi-square with non-parametric ranked statistic (to revisit). For now, I will proceed using the day-level intensity data provided by Fitbit (minutes spent in each intensity category) 
+<!-- Next steps: Replace chi-square with non-parametric ranked statistic (to revisit). For now, I will proceed using the day-level intensity data provided by Fitbit (minutes spent in each intensity category)  -->
 
-Remove engagement data frames
+<!-- Remove engagement data frames -->
 ```{r}
-  rm(engage,engage_participant,engage_time_varying)
+  # rm(engage,engage_participant,engage_time_varying)
 ```
 
 
@@ -998,42 +998,53 @@ Generate new clickInt and engageInt variables that are binary flags for clicks a
   daily<-daily %>% group_by(Id,date) %>% mutate(dayCountEngageAny=sum(engage),
                                                 dayCountClickAny=sum(click),
                                                 dayCountEngageInt=sum(engageInt),
-                                                dayCountClickInt=sum(clickInt)) %>%
-                   ungroup() %>% group_by(Id,intervention) %>% mutate(periodCountClickAny=sum(click),
-                                                                      periodCountEngageAny=sum(engage),
-                                                                      periodCountClickInt=sum(clickInt),
-                                                                      periodCountEngageInt=sum(engageInt)) %>% 
-                   ungroup() %>% group_by(Id) %>% mutate(personCountClickAny=sum(click),
-                                                         personCountEngageAny=sum(engage),
-                                                         personCountClickInt=sum(clickInt),
-                                                         personCountEngageInt=sum(engageInt))
+                                                dayCountClickInt=sum(clickInt)) #%>%
+                 # ungroup() %>% group_by(Id,intervention) %>% mutate(periodCountClickAny=sum(click),
+                 #                                                    periodCountEngageAny=sum(engage),
+                 #                                                    periodCountClickInt=sum(clickInt),
+                 #                                                    periodCountEngageInt=sum(engageInt)) %>% 
+                 # ungroup() %>% group_by(Id) %>% mutate(personCountClickAny=sum(click),
+                 #                                       personCountEngageAny=sum(engage),
+                 #                                       personCountClickInt=sum(clickInt),
+                 #                                       personCountEngageInt=sum(engageInt))
 ```
 
 #### Summarize clicks and engagement: Mean daily enagement over different periods (overall, by intervention period)
-Calculate average daily clicks and engagements per participant, and per participant and period (pre, intervention, post)
+<!-- Calculate average daily clicks and engagements per participant, and per participant and period (pre, intervention, post) -->
 ```{r}
-  daily<-daily %>% group_by(Id) %>% mutate(personMeanDailyClickAny=mean(dayCountClickAny),
-                                           personMeanDailyEngageAny=mean(dayCountEngageAny),
-                                           personMeanDailyClickInt=mean(dayCountClickInt),
-                                           personMeanDailyEngageInt=mean(dayCountEngageInt),
-                                           personMeanDailyMVPA=mean(totalMVPA),
-                                           personMedianDailyMVPA=median(totalMVPA)) %>%
-                   group_by(Id,intervention) %>% mutate(periodMeanDailyClickAny=mean(dayCountClickAny),
-                                                        periodMeanDailyEngageAny=mean(dayCountEngageAny),
-                                                        periodMeanDailyClickInt=mean(dayCountClickInt),
-                                                        periodMeanDailyEngageInt=mean(dayCountEngageInt),
-                                                        periodMeanDailyMVPA=mean(totalMVPA),
-                                                        periodMedianDailyMVPA=median(totalMVPA))
+  # daily<-daily %>% group_by(Id) %>% mutate(personMeanDailyClickAny=mean(dayCountClickAny),
+  #                                          personMeanDailyEngageAny=mean(dayCountEngageAny),
+  #                                          personMeanDailyClickInt=mean(dayCountClickInt),
+  #                                          personMeanDailyEngageInt=mean(dayCountEngageInt),
+  #                                          personMeanDailyMVPA=mean(totalMVPA),
+  #                                          personMedianDailyMVPA=median(totalMVPA)) %>%
+  #                  group_by(Id,intervention) %>% mutate(periodMeanDailyClickAny=mean(dayCountClickAny),
+  #                                                       periodMeanDailyEngageAny=mean(dayCountEngageAny),
+  #                                                       periodMeanDailyClickInt=mean(dayCountClickInt),
+  #                                                       periodMeanDailyEngageInt=mean(dayCountEngageInt),
+  #                                                       periodMeanDailyMVPA=mean(totalMVPA),
+  #                                                       periodMedianDailyMVPA=median(totalMVPA))
 ```
 
 
 # 5. Clean and export TOP
 
+## Remove participant-day with < 10 hours of data per day (across the 5 movement categories) or > 24 hours of data
+```{r}
+  daily2<-daily
+  daily$sumMinutes<-daily$SedentaryMinutes+
+                    daily$LightlyActiveMinutes+
+                    daily$totalMVPA+
+                    daily$TotalTimeInBed
+  hist(daily$sumMinutes)
+  daily<-daily[daily$sumMinutes<=1440 & daily$sumMinutes >=600,]
+```
+
 ## Remove participant-days where TotalTimeAsleep == 0 and SedentaryMinutes == 1440 (or greater?)
 
 First, explore participant-days with 0 time in bed 
 ```{r}
-  length(daily[daily$TotalTimeInBed==0,]$Id) # 565 participant-days with 0 time in bed
+  length(daily[daily$TotalTimeInBed==0,]$Id) # 486 participant-days with 0 time in bed
     summary(daily[daily$TotalTimeInBed==0,]$SedentaryMinutes) # almost half had 0 1440 sedentary minutes, most 3/4 had at least 1134... could the balance be time when the device was dead? so 1440 = device was off, <1440 = off all day but dead part of the day 
     summary(daily[daily$TotalTimeInBed==0,]$StepTotal)
     summary(daily[daily$TotalTimeInBed==0,]$TotalMinutesAsleep) # all participant-days also have 0 minutes asleep
@@ -1048,6 +1059,7 @@ Next, explore participant-days with 0 minutes asleep
 Also explore participant-days with > or = 1440 minutes of sedentary minutes
 ```{r}
   length(daily[daily$SedentaryMinutes>=1440,]$Id) # 242 participant-days with 1440 or more sedentary minutes
+  test<-daily[daily$SedentaryMinutes>=1440,]
     unique(daily[daily$SedentaryMinutes>=1440,]$TotalTimeInBed) # all 242 participant-days with 1440 or more sedentary minutes also had 0 minutes in bed
 ```
 
@@ -1067,6 +1079,31 @@ Also explore participant-days with > or = 1440 minutes of sedentary minutes
 Conclusion: Will delete all participant-days with 0 minutes in bed/asleep -- resolves missingness in other variables (e.g., sedentary time == 1440 (no other movement categories captured) and steps (0 steps within a day))
 ```{r}
   daily<-daily[daily$TotalTimeInBed!=0,]
+```
+
+## Remove participant-days with 0 minutes of sedentary time
+```{r}
+  length(daily[daily$SedentaryMinutes == 0,]$Id)
+  daily<-daily[daily$SedentaryMinutes != 0,]
+```
+
+## Remove participant-days with < 10 hours of wear time (nonWearMinutes >= 840 minutes per day)
+Remove days with < 10 hours of wear time (14+ hours of non-wear time)
+```{r}
+  length(daily[daily$nonWearMinutes >= 840,]$Id)
+  daily<-daily[daily$nonWearMinutes < 840,]
+```
+
+
+## Remove the first day of data for all participants
+Explore the mean (and max) minutes of non-wear time by day. Numbers on the first day may be influenced by low wear time (e.g., very high sedentary time, low light, low sleep, etc.). Mean non-wear time is an order of magnitude higher on the first day vs. the second highest day (towards the end of the study/during the post-intervention period). As a resul, will also deleted the first day of data
+```{r}
+  nonWear<-daily %>% select(date,nonWearMinutes) %>% group_by(date) %>% arrange(date) %>%
+                             mutate(meanNonWear=mean(nonWearMinutes),
+                                    maxNonWear=max(nonWearMinutes)) %>% 
+                             select(-nonWearMinutes,-Id) %>% distinct() %>% arrange(desc(meanNonWear))
+  nonWear
+  daily<-daily[daily$date>min(daily$date),]
 ```
 
 ## Write CSV file for TOP

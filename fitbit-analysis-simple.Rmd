@@ -18,7 +18,6 @@ library(foreign)
 library(readxl)
 library(gridExtra)
 library(sjPlot)
-install.packages("jtools")
 library(jtools)
 knitr::opts_knit$set(root.dir = '~/Desktop/CSEP fitbit')
 ```
@@ -500,8 +499,8 @@ Plot of all movement behaviours over time
 
 ## Boxplot - one panel per movement behaviour
 
-Box plot - MVPA
-```{r}
+#### MVPA
+```{r,echo=FALSE}
   BWboxplotMVPA<-ggplot(dailyLong[dailyLong$behaviour=="MVPA",],aes(x=period,y=minutes,fill=period))+
                          #geom_jitter(alpha=0.05) +
                          geom_boxplot() +
@@ -534,8 +533,8 @@ Box plot - MVPA
   BWboxplotMVPA
 ```
 
-Box plot - LPA
-```{r}
+#### Lightly active minutes
+```{r,echo=FALSE}
   BWboxplotLPA<-ggplot(dailyLong[dailyLong$behaviour=="LPA",],aes(x=period,y=minutes,fill=period))+
                          #geom_jitter(alpha=0.05) +
                          geom_boxplot() +
@@ -568,8 +567,8 @@ Box plot - LPA
   BWboxplotLPA
 ```
 
-Box plot - sedentary time
-```{r}
+#### Sedentary time
+```{r,echo=FALSE}
   BWboxplotSB<-ggplot(dailyLong[dailyLong$behaviour=="Sedentary",],aes(x=period,y=minutes,fill=period))+
                          #geom_jitter(alpha=0.05) +
                          geom_boxplot() +
@@ -602,8 +601,8 @@ Box plot - sedentary time
   BWboxplotSB
 ```
 
-Box plot - sleep 
-```{r}
+#### Sleep
+```{r,echo=FALSE}
   BWboxplotSleep<-ggplot(dailyLong[dailyLong$behaviour=="Sleep",],aes(x=period,y=minutes,fill=period))+
                          #geom_jitter(alpha=0.05) +
                          geom_boxplot() +
@@ -636,7 +635,7 @@ Box plot - sleep
   BWboxplotSleep
 ```
 
-```{r}
+```{r,echo=FALSE}
  bwBoxplot<-grid.arrange(BWboxplotMVPA,BWboxplotLPA,BWboxplotSB,BWboxplotSleep,ncol=2)
  ggsave(filename="boxplot_bw.pdf",
         plot=bwBoxplot,
@@ -863,9 +862,8 @@ Generate click and engagement variables that are rescaled such that the mean = m
                             (mean(dailyInt$TotalTimeInBed)/mean(dailyInt$dayCountEngageInt))
 ```
 
-#### using LOESS smoother
+### Using LOESS smoother
 
-*MVPA*
 ```{r,echo=FALSE,fig.show="hold"}
   lineIntMVPA<-ggplot(dailyInt,aes(x=date,y=totalMVPA))+
                #geom_smooth(data=dailyInt,method="lm",formula="y~x",aes(x=date,y=clickIntMVPA),color="black") +
@@ -885,7 +883,6 @@ Generate click and engagement variables that are rescaled such that the mean = m
   lineIntMVPA
 ```
 
-*Lightly active minutes*
 ```{r,echo=FALSE,fig.show="hold"}
   lineIntLPA<-ggplot(dailyInt,aes(x=date,y=LightlyActiveMinutes))+
                #geom_smooth(data=dailyInt,method="lm",formula="y~x",aes(x=date,y=clickIntLPA),color="black") +
@@ -905,7 +902,6 @@ Generate click and engagement variables that are rescaled such that the mean = m
   lineIntLPA
 ```
 
-*Sedentary minutes*
 ```{r,echo=FALSE,fig.show="hold"}
   lineIntSB<-ggplot(dailyInt,aes(x=date,y=SedentaryMinutes))+
                #geom_smooth(data=dailyInt,method="lm",formula="y~x",aes(x=date,y=clickIntSB),color="black") +
@@ -925,7 +921,6 @@ Generate click and engagement variables that are rescaled such that the mean = m
   lineIntSB
 ```
 
-*Sleep minutes*
 ```{r,echo=FALSE,fig.show="hold"}
   lineIntSleep<-ggplot(dailyInt,aes(x=date,y=TotalTimeInBed))+
                #geom_smooth(data=dailyInt,method="lm",formula="y~x",aes(x=date,y=clickIntSleep),color="black") +
@@ -946,14 +941,13 @@ Generate click and engagement variables that are rescaled such that the mean = m
 ```
 
 
-*Panel Figure*
 ```{r,echo=FALSE,fig.show="hold"}
  grid.arrange(lineIntMVPA,lineIntLPA,lineIntSB,lineIntSleep,ncol=2)
 ```
 
 
 
-#### using my own models
+### Using multilevel models
 
 Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
 ```{r,echo=FALSE}
@@ -964,10 +958,10 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
 ```
 
 
-*daily clicks:* 
+#### Clicks 
 
 (a) plot to see what emerges when data is allowed to dictate the shape. *It looks as though there is at least 2 or 3 inflection points... requiring a third or fourth order factor*
-```{r}
+```{r,echo=FALSE}
   lineIntClick<-ggplot(dailyInt,aes(x=date,y=dayCountClickInt))+
                 geom_smooth(method="loess",formula="y~x",color="black") +
                 theme_classic()+
@@ -1011,8 +1005,8 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
   dailyInt$fit_click<-fitted(click)
 ```
 
-(e) plot predicted values MVPA over time + predicted values of intervention clicks (RESCALED) using geom_smooth, specifying linear regression
-```{r}
+(e) plot predicted value of clicks
+```{r,echo=FALSE}
   # with squared term
     click_plot<-ggplot(dailyInt,aes(x=date,y=fit_click,color=Id))+
                 #geom_point(data=dailyInt,aes(x=nDate,y=fit_click),alpha=0.25) +
@@ -1028,10 +1022,10 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
     click_plot
 ```
 
-*daily engagement* 
+#### Engagement
 
 (a) plot to see what emerges when data is allowed to dictate the shape. 
-```{r}
+```{r,echo=FALSE}
   lineIntEngage<-ggplot(dailyInt,aes(x=date,y=dayCountEngageInt))+
                 geom_smooth(method="loess",formula="y~x",color="black") +
                 theme_classic()+
@@ -1075,8 +1069,8 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
   dailyInt$fit_engage<-fitted(engage)
 ```
 
-(e) plot predicted values of daily engagement over time + predicted values of intervention clicks (RESCALED) using geom_smooth, specifying linear regression
-```{r}
+(e) plot predicted values of daily engagement over time
+```{r,echo=FALSE}
   # with squared term
     engage_plot<-ggplot(dailyInt,aes(x=date,y=fit_engage,color=Id))+
              #geom_point(data=dailyInt,aes(x=nDate,y=fit_engage),alpha=0.25) +
@@ -1092,10 +1086,10 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
     engage_plot
 ```
 
-*MVPA:* 
+#### MVPA: 
 
 (a) plot to see what emerges when data is allowed to dictate the shape. 
-```{r}
+```{r,echo=FALSE}
   plotMVPA<-ggplot(dailyInt,aes(x=date,y=totalMVPA))+
                 geom_smooth(method="loess",formula="y~x",color="#619CFF",fill="#619CFF") +
                 theme_classic()+
@@ -1147,8 +1141,8 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
                                (mean(dailyInt$fit_mvpa)/mean(dailyInt$fit_engage))
 ```
 
-(f) Plot predicted values MVPA over time + predicted values of intervention clicks (RESCALED) using geom_smooth, specifying linear regression
-```{r}
+(f) plot predicted values of MVPA over time + predicted values of intervention clicks
+```{r,echo=FALSE}
   # linear
     # plotMVPA<-ggplot(dailyInt,aes(x=nDate,y=fit_mvpa,color=Id))+
     #           theme_classic() +
@@ -1221,10 +1215,10 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
 ```
 
 
-*Lightly active minutes:* model daily minutes of lightly active minutes as a function of date/timev("#81DA66")
+#### Lightly active minutes:
 
 (a) plot to see what emerges when data is allowed to dictate the shape. 
-```{r}
+```{r,echo=FALSE}
   plotLPA<-ggplot(dailyInt,aes(x=date,y=LightlyActiveMinutes))+
                 geom_smooth(method="loess",formula="y~x",color="#81DA66",fill="#81DA66") +
                 theme_classic()+
@@ -1276,8 +1270,8 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
                                (mean(dailyInt$fit_LPA)/mean(dailyInt$fit_engage))
 ```
 
-(f) Plot predicted values LPA over time + predicted values of intervention clicks (RESCALED) using geom_smooth, specifying linear regression ("#81DA66")
-```{r}
+(f) plot predicted values LPA over time + predicted values of intervention clicks 
+```{r,echo=FALSE}
   # linear
     # plotLPA<-ggplot(dailyInt,aes(x=nDate,y=fit_LPA,color=Id))+
     #           theme_classic() +
@@ -1350,10 +1344,10 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
 ```
 
 
-*Sedentary minutes:*  model daily minutes of sedentary minutes as a function of date/time
+#### Sedentary minutes:
 
 (a) plot to see what emerges when data is allowed to dictate the shape. 
-```{r}
+```{r,echo=FALSE}
   plotSB<-ggplot(dailyInt,aes(x=date,y=SedentaryMinutes))+
                 geom_smooth(method="loess",formula="y~x",color="#FFC833",fill="#FFC833") +
                 theme_classic()+
@@ -1405,8 +1399,8 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
                                (mean(dailyInt$fit_SB)/mean(dailyInt$fit_engage))
 ```
 
-(f) Plot predicted values SB over time + predicted values of intervention clicks (RESCALED) using geom_smooth, specifying linear regression
-```{r}
+(f) plot predicted values SB over time + predicted values of intervention clicks
+```{r,echo=FALSE}
   # linear
     SB_long<-dailyInt %>% select(Id,nDate,date,fit_SB,click_SB)
     SB_long<-pivot_longer(SB_long,cols=c("fit_SB","click_SB"),names_to = "fitted")
@@ -1482,10 +1476,10 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
 ```
 
 
-*Sleep minutes:* model daily sleep minutes as a function of date/time
+#### Sleep minutes:
 
 (a) plot to see what emerges when data is allowed to dictate the shape. 
-```{r}
+```{r,echo=FALSE}
   lineIntSleep<-ggplot(dailyInt,aes(x=date,y=TotalTimeInBed))+
                 geom_smooth(method="loess",formula="y~x",color="#FF8333",fill="#FF8333") +
                 theme_classic()+
@@ -1537,8 +1531,8 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
                                (mean(dailyInt$fit_sleep)/mean(dailyInt$fit_engage))
 ```
 
-(f) Plot predicted values Sleep over time + predicted values of intervention clicks (RESCALED) using geom_smooth, specifying linear regression
-```{r}
+(f) plot predicted values Sleep over time + predicted values of intervention clicks
+```{r,echo=FALSE}
   # linear
     # plotSleep<-ggplot(dailyInt,aes(x=nDate,y=fit_sleep,color=Id))+
     #           theme_classic() +
@@ -1610,8 +1604,8 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
     bwSleep
 ```
 
-*Panel Figure*
-```{r}
+##### Panel figures
+```{r,echo=FALSE}
  color<-grid.arrange(topMVPA,topLPA,topSB,topSleep,ncol=2)
  ggsave(filename="panel_figure_color.pdf",
         plot=color,
@@ -1620,7 +1614,7 @@ Create a time variable (where Oct 18 = 1, Oct 19 = 2, etc.)
         units=c("in"))
 ```
 
-```{r}
+```{r,echo=FALSE}
  bw<-grid.arrange(bwMVPA,bwLPA,bwSB,bwSleep,ncol=2)
  ggsave(filename="panel_figure_bw.pdf",
         plot=bw,
